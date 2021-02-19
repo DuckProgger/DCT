@@ -18,12 +18,12 @@ namespace DCT
 
             YCbCr[,] pixelsYCbCr = ConvertRGBtoYCbCr(pixelsRGB);
 
-            //dct = GetDCT();
-            //transDCT = GetTransposedDCT(dct);
+            dct = GetDCT();
+            transDCT = GetTransposedDCT(dct);
 
-            //YCbCr[,] compImage = GetCompressedPixelMatrix(pixelsYCbCr);
+            YCbCr[,] compImage = GetCompressedPixelMatrix(pixelsYCbCr);
 
-            Color[,] compPixelsRGB = ConvertYCbCrtoRGB(pixelsYCbCr);
+            Color[,] compPixelsRGB = ConvertYCbCrtoRGB(compImage);
 
             SaveCompressedImage(image, compPixelsRGB, @"C:\test\test2.bmp");
             ;
@@ -59,14 +59,9 @@ namespace DCT
                     byte green = pixelsRGB[x, y].G;
                     byte blue = pixelsRGB[x, y].B;
 
-                    double temp = 0.299 * red + 0.578 * green + 0.114 * blue;
-                    pixelsYCbCr[x, y].Y = (sbyte)Limit(temp, -128, 127);
-
-                    temp = 0.1678 * red - 0.3313 * green + 0.5 * blue;
-                    pixelsYCbCr[x, y].Cb = (sbyte)Limit(temp, -128, 127);
-
-                    temp = 0.5 * red - 0.4187 * green + 0.0813 * blue;
-                    pixelsYCbCr[x, y].Cr = (sbyte)Limit(temp, -128, 127);
+                    pixelsYCbCr[x, y].Y = (byte)Limit(0.299 * red + 0.587 * green + 0.114 * blue, 16, 235);
+                    pixelsYCbCr[x, y].Cb = (byte)Limit(128 - 0.1678736 * red - 0.331264 * green + 0.5 * blue, 16, 240);
+                    pixelsYCbCr[x, y].Cr = (byte)Limit(128 + 0.5 * red - 0.418688 * green + 0.081312 * blue, 16, 240);                    
                 }
             }
             return pixelsYCbCr;
@@ -83,11 +78,11 @@ namespace DCT
                 {
                     double Y = pixelsYCbCr[x, y].Y;
                     double Cb = pixelsYCbCr[x, y].Cb - 128;
-                    double Cr = pixelsYCbCr[x, y].Cr - 128;                   
+                    double Cr = pixelsYCbCr[x, y].Cr - 128;
 
-                    red = Y + 1.402 * Cr;
-                    green = Y - 0.34414 * Cb - 0.71414 * Cr;
-                    blue = Y + 1.772 * Cb;
+                    red = Y + 1.4022 * Cr;
+                    green = Y - 0.3456 * Cb - 0.7145 * Cr;
+                    blue = Y + 1.771 * Cb;
 
                     red = Limit(red, 0, 255);
                     green = Limit(green, 0, 255);
@@ -143,10 +138,10 @@ namespace DCT
             return transDCT;
         }
 
-        private sbyte[,] MulMatrix(sbyte[,] matrix1, double[,] matrix2)
+        private byte[,] MulMatrix(byte[,] matrix1, double[,] matrix2)
         {
             int x = matrix1.GetLength(0);
-            sbyte[,] result = new sbyte[x, x];
+            byte[,] result = new byte[x, x];
 
             for (int i = 0; i < x; i++)
             {
@@ -160,12 +155,12 @@ namespace DCT
             return result;
         }
 
-        private sbyte GetMatrixNode(sbyte[] row, double[] column)
+        private byte GetMatrixNode(byte[] row, double[] column)
         {
-            sbyte matrixNode = 0;
+            byte matrixNode = 0;
             for (int i = 0; i < row.Length; i++)
             {
-                matrixNode += (sbyte)(row[i] * column[i]);
+                matrixNode += (byte)(row[i] * column[i]);
             }
 
             return matrixNode;
@@ -260,10 +255,10 @@ namespace DCT
             YCbCr[,] compPixelBlock = new YCbCr[8, 8];
             Array.Copy(pixelBlock, compPixelBlock, pixelBlock.Length);
 
-            sbyte[,] tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
-            sbyte[,] tempMatrix = MulMatrix(tempParameterBlock, transDCT);
+            byte[,] tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
+            byte[,] tempMatrix = MulMatrix(tempParameterBlock, transDCT);
             tempMatrix = MulMatrix(tempMatrix, dct);
-            WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Y); 
+            WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Y);
 
             tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Cb);
             tempMatrix = MulMatrix(tempParameterBlock, transDCT);
@@ -278,9 +273,9 @@ namespace DCT
             return compPixelBlock;
         }
 
-        private sbyte[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
+        private byte[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
         {
-            sbyte[,] parameterBlock = new sbyte[8, 8];
+            byte[,] parameterBlock = new byte[8, 8];
 
             for (int x = 0; x < 8; x++)
             {
@@ -305,7 +300,7 @@ namespace DCT
 
         }
 
-        private void WriteCompressedParameterBlockToYCbCrBlock(YCbCr[,] pixelBlock, sbyte[,] compParameterBlock, Parameter par)
+        private void WriteCompressedParameterBlockToYCbCrBlock(YCbCr[,] pixelBlock, byte[,] compParameterBlock, Parameter par)
         {
             for (int x = 0; x < 8; x++)
             {
