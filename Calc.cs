@@ -7,7 +7,7 @@ namespace DCT
     class Calc
     {
         private enum Parameter : int { Y, Cb, Cr }
-        double[,] dct, transDCT;
+        float[,] dct, transDCT;
         Image image;
         int width, height;
 
@@ -99,21 +99,21 @@ namespace DCT
             return Math.Max(lower, Math.Min(value, upper));
         }
 
-        private double[,] GetDCT()
+        private float[,] GetDCT()
         {
             int x = 8;
-            double[,] dct = new double[x, x];
+            float[,] dct = new float[x, x];
             for (int i = 0; i < x; i++)
             {
                 for (int j = 0; j < x; j++)
                 {
                     if (i == 0)
                     {
-                        dct[i, j] = 0.35356;
+                        dct[i, j] = 0.35356f;
                     }
                     else
                     {
-                        dct[i, j] = 0.5 * Math.Cos((2 * j + 1) * i * 0.19635);
+                        dct[i, j] = (float)(0.5 * Math.Cos((2 * j + 1) * i * 0.19635));
                     }
                 }
             }
@@ -122,10 +122,10 @@ namespace DCT
             return dct;
         }
 
-        private double[,] GetTransposedDCT(double[,] dct)
+        private float[,] GetTransposedDCT(float[,] dct)
         {
             int x = dct.GetLength(0);
-            double[,] transDCT = new double[x, x];
+            float[,] transDCT = new float[x, x];
 
             for (int i = 0; i < x; i++)
             {
@@ -138,10 +138,10 @@ namespace DCT
             return transDCT;
         }
 
-        private byte[,] MulMatrix(byte[,] matrix1, double[,] matrix2)
+        private float[,] MulMatrix(float[,] matrix1, float[,] matrix2)
         {
             int x = matrix1.GetLength(0);
-            byte[,] result = new byte[x, x];
+            float[,] result = new float[x, x];
 
             for (int i = 0; i < x; i++)
             {
@@ -155,18 +155,18 @@ namespace DCT
             return result;
         }
 
-        private byte GetMatrixNode(byte[] row, double[] column)
+        private float GetMatrixNode(float[] row, float[] column)
         {
-            byte matrixNode = 0;
+            float matrixNode = 0;
             for (int i = 0; i < row.Length; i++)
             {
-                matrixNode += (byte)(row[i] * column[i]);
+                matrixNode += (row[i] * column[i]);
             }
 
             return matrixNode;
         }
 
-        private void ShowMatrix(double[,] matrix)
+        private void ShowMatrix(float[,] matrix)
         {
             int x = matrix.GetLength(0);
             for (int i = 0; i < x; i++)
@@ -255,8 +255,8 @@ namespace DCT
             YCbCr[,] compPixelBlock = new YCbCr[8, 8];
             Array.Copy(pixelBlock, compPixelBlock, pixelBlock.Length);
 
-            byte[,] tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
-            byte[,] tempMatrix = MulMatrix(tempParameterBlock, transDCT);
+            float[,] tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
+            float[,] tempMatrix = MulMatrix(tempParameterBlock, transDCT);
             tempMatrix = MulMatrix(tempMatrix, dct);
             WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Y);
 
@@ -273,9 +273,9 @@ namespace DCT
             return compPixelBlock;
         }
 
-        private byte[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
+        private float[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
         {
-            byte[,] parameterBlock = new byte[8, 8];
+            float[,] parameterBlock = new float[8, 8];
 
             for (int x = 0; x < 8; x++)
             {
@@ -300,7 +300,7 @@ namespace DCT
 
         }
 
-        private void WriteCompressedParameterBlockToYCbCrBlock(YCbCr[,] pixelBlock, byte[,] compParameterBlock, Parameter par)
+        private void WriteCompressedParameterBlockToYCbCrBlock(YCbCr[,] pixelBlock, float[,] compParameterBlock, Parameter par)
         {
             for (int x = 0; x < 8; x++)
             {
