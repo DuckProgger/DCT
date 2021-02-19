@@ -253,7 +253,7 @@ namespace DCT
             byte[,] tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
             byte[,] tempMatrix = MulMatrix(tempParameterBlock, transDCT);
             tempMatrix = MulMatrix(tempMatrix, dct);
-            WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Y);
+            WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Y); 
 
             tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Cb);
             tempMatrix = MulMatrix(tempParameterBlock, transDCT);
