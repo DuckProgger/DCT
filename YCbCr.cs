@@ -8,11 +8,11 @@ namespace DCT
 {
     struct YCbCr
     {
-        public byte Y { get; set; }
-        public byte Cb { get; set; }
-        public byte Cr { get; set; }
+        public sbyte Y { get; set; }
+        public sbyte Cb { get; set; }
+        public sbyte Cr { get; set; }
 
-        public YCbCr(byte y, byte cb, byte cr)
+        public YCbCr(sbyte y, sbyte cb, sbyte cr)
         {
             Y = y;
             Cb = cb;

@@ -18,12 +18,12 @@ namespace DCT
 
             YCbCr[,] pixelsYCbCr = ConvertRGBtoYCbCr(pixelsRGB);
 
-            dct = GetDCT();
-            transDCT = GetTransposedDCT(dct);
+            //dct = GetDCT();
+            //transDCT = GetTransposedDCT(dct);
 
-            YCbCr[,] compImage = GetCompressedPixelMatrix(pixelsYCbCr);
+            //YCbCr[,] compImage = GetCompressedPixelMatrix(pixelsYCbCr);
 
-            Color[,] compPixelsRGB = ConvertYCbCrtoRGB(compImage);
+            Color[,] compPixelsRGB = ConvertYCbCrtoRGB(pixelsYCbCr);
 
             SaveCompressedImage(image, compPixelsRGB, @"C:\test\test2.bmp");
             ;
@@ -51,17 +51,22 @@ namespace DCT
         private YCbCr[,] ConvertRGBtoYCbCr(Color[,] pixelsRGB)
         {
             YCbCr[,] pixelsYCbCr = new YCbCr[width, height];
-            for (int i = 0; i < width; i++)
+            for (int x = 0; x < width; x++)
             {
-                for (int j = 0; j < height; j++)
+                for (int y = 0; y < height; y++)
                 {
-                    byte red = pixelsRGB[i, j].R;
-                    byte green = pixelsRGB[i, j].G;
-                    byte blue = pixelsRGB[i, j].B;
+                    byte red = pixelsRGB[x, y].R;
+                    byte green = pixelsRGB[x, y].G;
+                    byte blue = pixelsRGB[x, y].B;
 
-                    pixelsYCbCr[i, j].Y = (byte)(0.299 * red + 0.578 * green * blue);
-                    pixelsYCbCr[i, j].Cb = (byte)(0.1678 * red - 0.3313 * green + 0.5 * blue);
-                    pixelsYCbCr[i, j].Cr = (byte)(0.5 * red - 0.4187 * green + 0.0813 * blue);
+                    double temp = 0.299 * red + 0.578 * green + 0.114 * blue;
+                    pixelsYCbCr[x, y].Y = (sbyte)Limit(temp, -128, 127);
+
+                    temp = 0.1678 * red - 0.3313 * green + 0.5 * blue;
+                    pixelsYCbCr[x, y].Cb = (sbyte)Limit(temp, -128, 127);
+
+                    temp = 0.5 * red - 0.4187 * green + 0.0813 * blue;
+                    pixelsYCbCr[x, y].Cr = (sbyte)Limit(temp, -128, 127);
                 }
             }
             return pixelsYCbCr;
@@ -69,29 +74,34 @@ namespace DCT
 
         private Color[,] ConvertYCbCrtoRGB(YCbCr[,] pixelsYCbCr)
         {
-            byte red, green, blue;
+            double red, green, blue;
 
             Color[,] pixelsRGB = new Color[width, height];
-            for (int i = 0; i < width; i++)
+            for (int x = 0; x < width; x++)
             {
-                for (int j = 0; j < height; j++)
+                for (int y = 0; y < height; y++)
                 {
-                    byte Y = pixelsYCbCr[i, j].Y;
-                    byte Cb = (byte)(pixelsYCbCr[i, j].Cb - 128);
-                    byte Cr = (byte)(pixelsYCbCr[i, j].Cr - 128);
+                    double Y = pixelsYCbCr[x, y].Y;
+                    double Cb = pixelsYCbCr[x, y].Cb - 128;
+                    double Cr = pixelsYCbCr[x, y].Cr - 128;                   
 
-                    red = (byte)(Y + 1.402 * Cr);
-                    green = (byte)(Y - 0.34414 * Cb - 0.71414 * Cr);
-                    blue = (byte)(Y + 1.772 * Cb);
+                    red = Y + 1.402 * Cr;
+                    green = Y - 0.34414 * Cb - 0.71414 * Cr;
+                    blue = Y + 1.772 * Cb;
 
-                    red = Math.Max((byte)0, Math.Min(red, (byte)255));
-                    green = Math.Max((byte)0, Math.Min(green, (byte)255));
-                    blue = Math.Max((byte)0, Math.Min(blue, (byte)255));
+                    red = Limit(red, 0, 255);
+                    green = Limit(green, 0, 255);
+                    blue = Limit(blue, 0, 255);
 
-                    pixelsRGB[i, j] = Color.FromArgb(red, green, blue);
+                    pixelsRGB[x, y] = Color.FromArgb((byte)red, (byte)green, (byte)blue);
                 }
             }
             return pixelsRGB;
+        }
+
+        private double Limit(double value, double lower, double upper)
+        {
+            return Math.Max(lower, Math.Min(value, upper));
         }
 
         private double[,] GetDCT()
@@ -133,10 +143,10 @@ namespace DCT
             return transDCT;
         }
 
-        private byte[,] MulMatrix(byte[,] matrix1, double[,] matrix2)
+        private sbyte[,] MulMatrix(sbyte[,] matrix1, double[,] matrix2)
         {
             int x = matrix1.GetLength(0);
-            byte[,] result = new byte[x, x];
+            sbyte[,] result = new sbyte[x, x];
 
             for (int i = 0; i < x; i++)
             {
@@ -150,12 +160,12 @@ namespace DCT
             return result;
         }
 
-        private byte GetMatrixNode(byte[] row, double[] column)
+        private sbyte GetMatrixNode(sbyte[] row, double[] column)
         {
-            byte matrixNode = 0;
+            sbyte matrixNode = 0;
             for (int i = 0; i < row.Length; i++)
             {
-                matrixNode += (byte)(row[i] * column[i]);
+                matrixNode += (sbyte)(row[i] * column[i]);
             }
 
             return matrixNode;
@@ -250,8 +260,8 @@ namespace DCT
             YCbCr[,] compPixelBlock = new YCbCr[8, 8];
             Array.Copy(pixelBlock, compPixelBlock, pixelBlock.Length);
 
-            byte[,] tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
-            byte[,] tempMatrix = MulMatrix(tempParameterBlock, transDCT);
+            sbyte[,] tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
+            sbyte[,] tempMatrix = MulMatrix(tempParameterBlock, transDCT);
             tempMatrix = MulMatrix(tempMatrix, dct);
             WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Y); 
 
@@ -268,9 +278,9 @@ namespace DCT
             return compPixelBlock;
         }
 
-        private byte[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
+        private sbyte[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
         {
-            byte[,] parameterBlock = new byte[8, 8];
+            sbyte[,] parameterBlock = new sbyte[8, 8];
 
             for (int x = 0; x < 8; x++)
             {
@@ -295,7 +305,7 @@ namespace DCT
 
         }
 
-        private void WriteCompressedParameterBlockToYCbCrBlock(YCbCr[,] pixelBlock, byte[,] compParameterBlock, Parameter par)
+        private void WriteCompressedParameterBlockToYCbCrBlock(YCbCr[,] pixelBlock, sbyte[,] compParameterBlock, Parameter par)
         {
             for (int x = 0; x < 8; x++)
             {
