@@ -45,6 +45,7 @@
             this.trackBar1.Size = new System.Drawing.Size(739, 45);
             this.trackBar1.TabIndex = 3;
             this.trackBar1.Value = 70;
+            this.trackBar1.Scroll += new System.EventHandler(this.trackBar1_Scroll);
             // 
             // pictureBox1
             // 
