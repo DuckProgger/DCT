@@ -7,26 +7,34 @@ namespace DCT
     class Calc
     {
         private enum Parameter : int { Y, Cb, Cr }
-        float[,] dct, transDCT;
-        Image image;
-        int width, height;
+        private float[,] dct, transDCT;
+        private Image image;
+        private int width, height;
+        public int CompressPercent { get; set; }
+        private int firstByteToDelete;
+        private int firstByteToDeleteX, firstByteToDeleteY;
 
-        public void Proc()
+        public void Proc(int quality)
         {
+            CompressPercent = quality;
+
+            Validate.IsTrue(CompressPercent >= 0 && CompressPercent <= 100, "Недопустимое значение.");
+            firstByteToDelete = (int)Limit((float)((100 - CompressPercent) * 0.64), 0, 100);
+            firstByteToDeleteX = firstByteToDelete / 8;
+            firstByteToDeleteY = firstByteToDelete % 8;
 
             Color[,] pixelsRGB = GetRGBpixels(@"C:\test\test.bmp");
 
             YCbCr[,] pixelsYCbCr = ConvertRGBtoYCbCr(pixelsRGB);
 
             dct = GetDCT();
-            transDCT = GetTransposedDCT(dct);
+            transDCT = GetTransposedMatrix(dct);
 
             YCbCr[,] compImage = GetCompressedPixelMatrix(pixelsYCbCr);
 
             Color[,] compPixelsRGB = ConvertYCbCrtoRGB(compImage);
 
             SaveCompressedImage(image, compPixelsRGB, @"C:\test\test2.bmp");
-            ;
         }
 
         private Color[,] GetRGBpixels(string path)
@@ -35,13 +43,13 @@ namespace DCT
             width = image.Width;
             height = image.Height;
             Color[,] colors = new Color[width, height];
-            if (image is Bitmap)
+            if (image is Bitmap bitmap)
             {
-                for (int i = 0; i < width; i++)
+                for (int x = 0; x < width; x++)
                 {
-                    for (int j = 0; j < height; j++)
+                    for (int y = 0; y < height; y++)
                     {
-                        colors[i, j] = ((Bitmap)image).GetPixel(i, j);
+                        colors[x, y] = bitmap.GetPixel(x, y);
                     }
                 }
             }
@@ -51,6 +59,7 @@ namespace DCT
         private YCbCr[,] ConvertRGBtoYCbCr(Color[,] pixelsRGB)
         {
             YCbCr[,] pixelsYCbCr = new YCbCr[width, height];
+
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < height; y++)
@@ -59,9 +68,9 @@ namespace DCT
                     byte green = pixelsRGB[x, y].G;
                     byte blue = pixelsRGB[x, y].B;
 
-                    pixelsYCbCr[x, y].Y = (byte)Limit(0.299 * red + 0.587 * green + 0.114 * blue, 16, 235);
-                    pixelsYCbCr[x, y].Cb = (byte)Limit(128 - 0.1678736 * red - 0.331264 * green + 0.5 * blue, 16, 240);
-                    pixelsYCbCr[x, y].Cr = (byte)Limit(128 + 0.5 * red - 0.418688 * green + 0.081312 * blue, 16, 240);                    
+                    pixelsYCbCr[x, y].Y = Limit(0.299f * red + 0.587f * green + 0.114f * blue, 16, 235);
+                    pixelsYCbCr[x, y].Cb = Limit(128 - 0.1678736f * red - 0.331264f * green + 0.5f * blue, 16, 240);
+                    pixelsYCbCr[x, y].Cr = Limit(128 + 0.5f * red - 0.418688f * green + 0.081312f * blue, 16, 240);
                 }
             }
             return pixelsYCbCr;
@@ -69,20 +78,19 @@ namespace DCT
 
         private Color[,] ConvertYCbCrtoRGB(YCbCr[,] pixelsYCbCr)
         {
-            double red, green, blue;
-
             Color[,] pixelsRGB = new Color[width, height];
+
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < height; y++)
                 {
-                    double Y = pixelsYCbCr[x, y].Y;
-                    double Cb = pixelsYCbCr[x, y].Cb - 128;
-                    double Cr = pixelsYCbCr[x, y].Cr - 128;
+                    float Y = pixelsYCbCr[x, y].Y;
+                    float Cb = pixelsYCbCr[x, y].Cb - 128;
+                    float Cr = pixelsYCbCr[x, y].Cr - 128;
 
-                    red = Y + 1.4022 * Cr;
-                    green = Y - 0.3456 * Cb - 0.7145 * Cr;
-                    blue = Y + 1.771 * Cb;
+                    float red = Y + 1.4022f * Cr;
+                    float green = Y - 0.3456f * Cb - 0.7145f * Cr;
+                    float blue = Y + 1.771f * Cb;
 
                     red = Limit(red, 0, 255);
                     green = Limit(green, 0, 255);
@@ -94,64 +102,45 @@ namespace DCT
             return pixelsRGB;
         }
 
-        private double Limit(double value, double lower, double upper)
+        private float Limit(float value, float lower, float upper)
         {
             return Math.Max(lower, Math.Min(value, upper));
-        }
+        }        
 
         private float[,] GetDCT()
         {
-            int x = 8;
-            float[,] dct = new float[x, x];
-            for (int i = 0; i < x; i++)
+            float[,] dct = new float[8, 8];
+            for (int x = 0; x < 8; x++)
             {
-                for (int j = 0; j < x; j++)
+                for (int y = 0; y < 8; y++)
                 {
-                    if (i == 0)
+                    if (x == 0)
                     {
-                        dct[i, j] = 0.35356f;
+                        dct[x, y] = 0.35356f;
                     }
                     else
                     {
-                        dct[i, j] = (float)(0.5 * Math.Cos((2 * j + 1) * i * 0.19635));
+                        dct[x, y] = (float)(0.5f * Math.Cos((2 * y + 1) * x * 0.19635f));
                     }
                 }
             }
 
-            ShowMatrix(dct);
             return dct;
-        }
-
-        private float[,] GetTransposedDCT(float[,] dct)
-        {
-            int x = dct.GetLength(0);
-            float[,] transDCT = new float[x, x];
-
-            for (int i = 0; i < x; i++)
-            {
-                for (int j = 0; j < x; j++)
-                {
-                    transDCT[i, j] = dct[j, i];
-                }
-            }
-            ShowMatrix(transDCT);
-            return transDCT;
         }
 
         private float[,] MulMatrix(float[,] matrix1, float[,] matrix2)
         {
-            int x = matrix1.GetLength(0);
-            float[,] result = new float[x, x];
+            int size = matrix1.GetLength(0);
+            float[,] result = new float[size, size];
 
-            for (int i = 0; i < x; i++)
+            for (int x = 0; x < size; x++)
             {
-                for (int j = 0; j < x; j++)
+                for (int y = 0; y < size; y++)
                 {
-                    result[i, j] = GetMatrixNode(GetRow(matrix1, i), GetColumn(matrix2, j));
+                    result[x, y] = GetMatrixNode(GetRow(matrix1, x), GetColumn(matrix2, y));
                 }
             }
 
-            //ShowArray(result);
             return result;
         }
 
@@ -160,27 +149,25 @@ namespace DCT
             float matrixNode = 0;
             for (int i = 0; i < row.Length; i++)
             {
-                matrixNode += (row[i] * column[i]);
+                matrixNode += row[i] * column[i];
             }
 
             return matrixNode;
         }
 
-        private void ShowMatrix(float[,] matrix)
+        private T[,] GetTransposedMatrix<T>(T[,] matrix)
         {
-            int x = matrix.GetLength(0);
-            for (int i = 0; i < x; i++)
+            int size = matrix.GetLength(0);
+            T[,] tranMatrix = new T[size, size];
+
+            for (int x = 0; x < size; x++)
             {
-                for (int j = 0; j < x; j++)
+                for (int y = 0; y < size; y++)
                 {
-                    Console.Write("{0, 6:0.###} ", matrix[i, j]);
-                    if (j == x - 1)
-                    {
-                        Console.WriteLine();
-                    }
+                    tranMatrix[x, y] = matrix[y, x];
                 }
             }
-            Console.WriteLine();
+            return tranMatrix;
         }
 
         private static T[] GetRow<T>(T[,] matrix, int row)
@@ -188,13 +175,13 @@ namespace DCT
             if (matrix.GetLength(0) <= row)
                 throw new ArgumentException();
 
-            T[] row_res = new T[matrix.GetLength(1)];
+            T[] rowRes = new T[matrix.GetLength(1)];
             for (int i = 0; i < matrix.GetLength(1); i++)
             {
-                row_res[i] = matrix[row, i];
+                rowRes[i] = matrix[row, i];
             }
 
-            return row_res;
+            return rowRes;
         }
 
         private static T[] GetColumn<T>(T[,] matrix, int column)
@@ -202,19 +189,19 @@ namespace DCT
             if (matrix.GetLength(0) <= column)
                 throw new ArgumentException();
 
-            T[] column_res = new T[matrix.GetLength(1)];
+            T[] columnRes = new T[matrix.GetLength(1)];
             for (int i = 0; i < matrix.GetLength(1); i++)
             {
-                column_res[i] = matrix[i, column];
+                columnRes[i] = matrix[i, column];
             }
 
-            return column_res;
+            return columnRes;
         }
 
         private YCbCr[,] GetCompressedPixelMatrix(YCbCr[,] pixelsYCbCr)
         {
-            YCbCr[,] compMatrix = new YCbCr[pixelsYCbCr.GetLength(0), pixelsYCbCr.GetLength(1)];
-            YCbCr[,] pixelBlock, tempCompPixelBlock;
+            YCbCr[,] compMatrix = new YCbCr[width, height];
+            YCbCr[,] pixelBlock, compPixelBlock;
             int numberOfXblocks = width / 8;
             int numberOfYblocks = height / 8;
 
@@ -223,26 +210,28 @@ namespace DCT
                 for (int YblockCoord = 0; YblockCoord < numberOfYblocks; YblockCoord++)
                 {
                     pixelBlock = GetBlock8x8(pixelsYCbCr, XblockCoord, YblockCoord);
-                    tempCompPixelBlock = CompressBlock(pixelBlock);
-                    WriteCompressedBlockToYCbCrMatrix(compMatrix, tempCompPixelBlock, XblockCoord, YblockCoord);
+                    compPixelBlock = CompressBlock(pixelBlock);
+                    WriteCompressedBlockToYCbCrMatrix(compMatrix, compPixelBlock, XblockCoord, YblockCoord);
                 }
             }
 
             return compMatrix;
         }
 
-        private YCbCr[,] GetBlock8x8(YCbCr[,] pixels, int coorX, int coorY)
+        private YCbCr[,] GetBlock8x8(YCbCr[,] pixels, int blockCoordX, int blockCoordY)
         {
             YCbCr[,] pixelBlock = new YCbCr[8, 8];
 
             int pixelBlockCoordX = 0;
             int pixelBlockCoordY = 0;
+            int offsetX = blockCoordX * 8;
+            int offsetY = blockCoordY * 8;
 
-            for (int i = coorX * 8; i < (coorX + 1) * 8; i++, pixelBlockCoordX++, pixelBlockCoordY = 0)
+            for (int x = offsetX; x < offsetX + 8; x++, pixelBlockCoordX++, pixelBlockCoordY = 0)
             {
-                for (int j = coorY * 8; j < (coorY + 1) * 8; j++, pixelBlockCoordY++)
+                for (int y = offsetY; y < offsetY + 8; y++, pixelBlockCoordY++)
                 {
-                    pixelBlock[pixelBlockCoordX, pixelBlockCoordY] = pixels[i, j];
+                    pixelBlock[pixelBlockCoordX, pixelBlockCoordY] = pixels[x, y];
                 }
             }
             return pixelBlock;
@@ -250,27 +239,44 @@ namespace DCT
 
         private YCbCr[,] CompressBlock(YCbCr[,] pixelBlock)
         {
-            Validate.IsTrue(pixelBlock.GetLength(0) == 8 || pixelBlock.GetLength(1) == 8, "Неверный размер блока");
-
             YCbCr[,] compPixelBlock = new YCbCr[8, 8];
             Array.Copy(pixelBlock, compPixelBlock, pixelBlock.Length);
+            float[,] tempParameterBlock, tempMatrix;
 
-            float[,] tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
-            float[,] tempMatrix = MulMatrix(tempParameterBlock, transDCT);
+            tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
+            tempMatrix = MulMatrix(tempParameterBlock, transDCT);
+            tempMatrix = RemoveExcess(ref tempMatrix);
             tempMatrix = MulMatrix(tempMatrix, dct);
             WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Y);
 
             tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Cb);
             tempMatrix = MulMatrix(tempParameterBlock, transDCT);
+            tempMatrix = RemoveExcess(ref tempMatrix);
             tempMatrix = MulMatrix(tempMatrix, dct);
             WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Cb);
 
             tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Cr);
             tempMatrix = MulMatrix(tempParameterBlock, transDCT);
+            tempMatrix = RemoveExcess(ref tempMatrix);
             tempMatrix = MulMatrix(tempMatrix, dct);
             WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Cr);
 
             return compPixelBlock;
+        }
+
+        private float[,] RemoveExcess(ref float[,] matrix)
+        {
+            int x = firstByteToDeleteX;
+            int y = firstByteToDeleteY;
+
+            for (; x < 8; x++, y = 0)
+            {
+                for (; y < 8; y++)
+                {
+                    matrix[y, x] = 0;
+                }
+            }
+            return matrix;
         }
 
         private float[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
@@ -326,10 +332,12 @@ namespace DCT
         {
             int pixelBlockCoordX = 0;
             int pixelBlockCoordY = 0;
+            int offsetX = blockCoorX * 8;
+            int offsetY = blockCoorY * 8;
 
-            for (int x = blockCoorX * 8; x < (blockCoorX + 1) * 8; x++, pixelBlockCoordX++, pixelBlockCoordY = 0)
+            for (int x = offsetX; x < offsetX + 8; x++, pixelBlockCoordX++, pixelBlockCoordY = 0)
             {
-                for (int y = blockCoorY * 8; y < (blockCoorY + 1) * 8; y++, pixelBlockCoordY++)
+                for (int y = offsetY; y < offsetY + 8; y++, pixelBlockCoordY++)
                 {
                     pixels[x, y] = compBlock[pixelBlockCoordX, pixelBlockCoordY];
                 }
@@ -338,13 +346,13 @@ namespace DCT
 
         private void SaveCompressedImage(Image image, Color[,] pixelsRGB, string path)
         {
-            if (image is Bitmap)
+            if (image is Bitmap bitmap)
             {
                 for (int x = 0; x < width; x++)
                 {
                     for (int y = 0; y < height; y++)
                     {
-                        ((Bitmap)image).SetPixel(x, y, pixelsRGB[x, y]);
+                        bitmap.SetPixel(x, y, pixelsRGB[x, y]);
                     }
                 }
             }
