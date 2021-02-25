@@ -11,7 +11,7 @@ namespace DCT
         public Form1() {
             InitializeComponent();
 
-            _sourceImage = (Bitmap)Image.FromFile(@"yNpDPY.jpg");
+            _sourceImage = (Bitmap)Image.FromFile(@"2969267161300910242.bmp");
             trackBar1_Scroll(this, EventArgs.Empty);
         }
 

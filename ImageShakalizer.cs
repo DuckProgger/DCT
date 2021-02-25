@@ -7,15 +7,15 @@ namespace DCT
     public class ImageShakalizer
     {
         public static Image Damage(Bitmap srcImage, int quality) {
-            byte[,,] rgb = BitmapToByteRgbQ(srcImage);
+            byte[,,] rgb = BitmapToByteRgb(srcImage);
             byte[,,] ycbcr = ByteRgbToByteYCbCr(rgb);
-
-
-
-
+            //Quantization(ycbcr, quality);
             byte[,,] result_rgb = ByteYCbCrToByteRgb(ycbcr);
-            Bitmap result_image = ByteRgbToBitmap(rgb);
+            Bitmap result_image = ByteRgbToBitmap(result_rgb);
+
+            result_image.Save("ddd.bmp", ImageFormat.Png);
             return result_image;
+
         }
 
 
@@ -23,7 +23,9 @@ namespace DCT
 
 
 
-        public static unsafe byte[,,] BitmapToByteRgbQ(Bitmap bmp) {
+
+
+        private static unsafe byte[,,] BitmapToByteRgb(Bitmap bmp) {
             //https://habr.com/ru/post/196578/
             int width = bmp.Width,
                 height = bmp.Height;
@@ -48,10 +50,10 @@ namespace DCT
             return rgb;
         }
 
-        public static unsafe Bitmap ByteRgbToBitmap(byte[,,] rgb) {
+        private static unsafe Bitmap ByteRgbToBitmap(byte[,,] rgb) {
             int width = rgb.GetLength(2),
                height = rgb.GetLength(1);
-            Bitmap bmp = new Bitmap(width, height);
+            Bitmap bmp = new Bitmap(width, height, PixelFormat.Format24bppRgb);
             BitmapData bd = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
             try {
                 byte* curpos;
@@ -72,7 +74,7 @@ namespace DCT
             return bmp;
         }
 
-        public static byte[,,] ByteRgbToByteYCbCr(byte[,,] rgb) {
+        private static byte[,,] ByteRgbToByteYCbCr(byte[,,] rgb) {
             int heigth = rgb.GetLength(1);
             int width = rgb.GetLength(2);
             byte[,,] ycbcr = new byte[3, heigth, width];
@@ -81,20 +83,15 @@ namespace DCT
                     byte r = rgb[0, h, w];
                     byte g = rgb[1, h, w];
                     byte b = rgb[2, h, w];
-
-                    double y = 0.0 + (0.299 * r) + (0.587 * g) + (0.114 * b);
-                    double cb = 128.0 - (0.168736 * r) - (0.331264 * g) + (0.5 * b);
-                    double cr = 128.0 + (0.5 * r) - (0.418688 * g) - (0.081312 * b);
-
-                    ycbcr[0, h, w] = y >= byte.MaxValue ? byte.MaxValue : (byte)Math.Round(y);
-                    ycbcr[1, h, w] = cb >= byte.MaxValue ? byte.MaxValue : (byte)Math.Round(cb);
-                    ycbcr[2, h, w] = cr >= byte.MaxValue ? byte.MaxValue : (byte)Math.Round(cr);
+                    ycbcr[0, h, w] = GetByte(0.0 + (0.299 * r) + (0.587 * g) + (0.114 * b));
+                    ycbcr[1, h, w] = GetByte(128.0 - (0.168736 * r) - (0.331264 * g) + (0.5 * b));
+                    ycbcr[2, h, w] = GetByte(128.0 + (0.5 * r) - (0.418688 * g) - (0.081312 * b));
                 }
             }
             return ycbcr;
         }
 
-        public static byte[,,] ByteYCbCrToByteRgb(byte[,,] ycbcr) {
+        private static byte[,,] ByteYCbCrToByteRgb(byte[,,] ycbcr) {
             int heigth = ycbcr.GetLength(1);
             int width = ycbcr.GetLength(2);
             byte[,,] rgb = new byte[3, heigth, width];
@@ -103,24 +100,67 @@ namespace DCT
                     byte y = ycbcr[0, h, w];
                     byte cb = ycbcr[1, h, w];
                     byte cr = ycbcr[2, h, w];
-
-                    double r = y + 1.402 * (cr - 128.0);
-                    double g = y - 0.34414 * (cb - 128.0) - 0.71414 * (cr - 128.0);
-                    double b = y + 1.772 * (cb - 128.0);
-
-                    rgb[0, h, w] = r >= byte.MaxValue ? byte.MaxValue : (byte)Math.Round(r);
-                    rgb[1, h, w] = g >= byte.MaxValue ? byte.MaxValue : (byte)Math.Round(g);
-                    rgb[2, h, w] = b >= byte.MaxValue ? byte.MaxValue : (byte)Math.Round(b);
+                    rgb[0, h, w] = GetByte(y + 1.402 * (cr - 128.0));
+                    rgb[1, h, w] = GetByte(y - 0.34414 * (cb - 128.0) - 0.71414 * (cr - 128.0));
+                    rgb[2, h, w] = GetByte(y + 1.772 * (cb - 128.0));
                 }
             }
             return rgb;
         }
 
+        private static void Quantization(byte[,,] ycbcr, int quantizator) {
+            byte[,] q_matrix = GetQuantMatrix(quantizator);
+            double[,] dct = new double[8, 8];
+
+            int heigth = ycbcr.GetLength(1);
+            int width = ycbcr.GetLength(2);
+
+            // цикл по блокам 8х8
+            for (int block_h = 0; block_h < heigth; block_h += 8) {
+                int block_h_end = block_h + 8;
+                for (int block_w = 0; block_w < width; block_w += 8) {
+                    int block_w_end = block_w + 8;
+
+                    // цикл по пикселям внутри блока 8х8
+                    for (int h = block_h; h < block_h_end; h++) {
+                        for (int w = block_w; w < block_w_end; w++) {
+
+                            // используется смещение для матрицы квантования
+                            int offset_h = h - block_h;
+                            int offset_w = w - block_w;
 
 
+                            //ycbcr[0, h, w] = q_matrix[offset_h, offset_w];
+                            //ycbcr[1, h, w] = q_matrix[offset_h, offset_w];
+                            //ycbcr[2, h, w] = q_matrix[offset_h, offset_w];
 
 
+                            { }
 
+                        }
+                    }
+                }
+            }
+        }
 
+        private static byte[,] GetQuantMatrix(int q) {
+            byte[,] q_matrix = new byte[8, 8];
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    q_matrix[i, j] = (byte)(1 + ((1 + i + j) * q));
+                }
+            }
+            return q_matrix;
+        }
+
+        private static byte GetByte(double value) {
+            if (value <= 0.0) {
+                return 0;
+            } else if (value >= 255.0) {
+                return 255;
+            } else {
+                return (byte)Math.Round(value);
+            }
+        }
     }
 }
