@@ -4,15 +4,19 @@ using System.Windows.Forms;
 
 namespace DCT
 {
+
     public partial class Form1 : Form
     {
+        Calc calc;
         private readonly Bitmap _sourceImage;
 
         public Form1()
         {
             InitializeComponent();
+            calc = new Calc();
+            calc.Initialization();
 
-            _sourceImage = (Bitmap)Image.FromFile(@"C:\test\test2.bmp");
+            //_sourceImage = (Bitmap)Image.FromFile(@"C:\test\test2.bmp");
             trackBar1_Scroll(this, EventArgs.Empty);
         }
 
@@ -26,7 +30,7 @@ namespace DCT
             try
             {
                 pictureBox1.Image = null;
-                pictureBox1.Image = processImage(_sourceImage, quality);
+                pictureBox1.Image = processImage(quality);
                 Text = quality.ToString();
             }
             catch (Exception ex)
@@ -37,11 +41,11 @@ namespace DCT
 
 
 
-        private Image processImage(Bitmap srcImage, int quality)
+        private Image processImage(int quality)
         {
-            new Calc().Proc(quality);
+            Image image = (Bitmap)calc.CompressImage(quality);
 
-            return srcImage;
+            return image;
         }
 
         private void pictureBox1_Click(object sender, EventArgs e)

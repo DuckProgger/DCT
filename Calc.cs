@@ -10,31 +10,50 @@ namespace DCT
         private float[,] dct, transDCT;
         private Image image;
         private int width, height;
-        public int CompressPercent { get; set; }
+        private int CompressPercent { get; set; }
         private int firstByteToDelete;
         private int firstByteToDeleteX, firstByteToDeleteY;
+        private YCbCr[,] pixelsYCbCr;
 
-        public void Proc(int quality)
+        public void Initialization()
         {
-            CompressPercent = quality;
-
-            Validate.IsTrue(CompressPercent >= 0 && CompressPercent <= 100, "Недопустимое значение.");
-            firstByteToDelete = (int)Limit((float)((100 - CompressPercent) * 0.64), 0, 100);
-            firstByteToDeleteX = firstByteToDelete / 8;
-            firstByteToDeleteY = firstByteToDelete % 8;
-
             Color[,] pixelsRGB = GetRGBpixels(@"C:\test\test.bmp");
 
-            YCbCr[,] pixelsYCbCr = ConvertRGBtoYCbCr(pixelsRGB);
+            pixelsYCbCr = ConvertRGBtoYCbCr(pixelsRGB);
+        }
 
-            dct = GetDCT();
-            transDCT = GetTransposedMatrix(dct);
+        public Image CompressImage(int quality)
+        {
+            Stopwatch stopWatch = new Stopwatch();
+            stopWatch.Start();
 
-            YCbCr[,] compImage = GetCompressedPixelMatrix(pixelsYCbCr);
+            YCbCr[,] compImage = GetCompressedPixelMatrix(pixelsYCbCr, quality);
+
+            stopWatch.Stop();
+            TimeSpan ts = stopWatch.Elapsed;
+            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+            Console.WriteLine("Время выполнения программы: " + elapsedTime);
+
+            stopWatch.Restart();
 
             Color[,] compPixelsRGB = ConvertYCbCrtoRGB(compImage);
 
-            SaveCompressedImage(image, compPixelsRGB, @"C:\test\test2.bmp");
+            stopWatch.Stop();
+            ts = stopWatch.Elapsed;
+            elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+            Console.WriteLine("Время выполнения программы: " + elapsedTime);
+
+
+            stopWatch.Restart();
+
+            Image img = SaveCompressedImage(image, compPixelsRGB);
+
+            stopWatch.Stop();
+            ts = stopWatch.Elapsed;
+            elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+            Console.WriteLine("Время выполнения программы: " + elapsedTime);
+
+            return img;
         }
 
         private Color[,] GetRGBpixels(string path)
@@ -105,7 +124,7 @@ namespace DCT
         private float Limit(float value, float lower, float upper)
         {
             return Math.Max(lower, Math.Min(value, upper));
-        }        
+        }
 
         private float[,] GetDCT()
         {
@@ -198,12 +217,21 @@ namespace DCT
             return columnRes;
         }
 
-        private YCbCr[,] GetCompressedPixelMatrix(YCbCr[,] pixelsYCbCr)
+        private YCbCr[,] GetCompressedPixelMatrix(YCbCr[,] pixelsYCbCr, int quality)
         {
             YCbCr[,] compMatrix = new YCbCr[width, height];
             YCbCr[,] pixelBlock, compPixelBlock;
             int numberOfXblocks = width / 8;
             int numberOfYblocks = height / 8;
+
+            CompressPercent = quality;
+            Validate.IsTrue(CompressPercent >= 0 && CompressPercent <= 100, "Недопустимое значение.");
+            firstByteToDelete = (int)Limit((float)((100 - CompressPercent) * 0.64), 0, 100);
+            firstByteToDeleteX = firstByteToDelete / 8;
+            firstByteToDeleteY = firstByteToDelete % 8;
+
+            dct = GetDCT();
+            transDCT = GetTransposedMatrix(dct);
 
             for (int XblockCoord = 0; XblockCoord < numberOfXblocks; XblockCoord++)
             {
@@ -343,8 +371,8 @@ namespace DCT
                 }
             }
         }
-
-        private void SaveCompressedImage(Image image, Color[,] pixelsRGB, string path)
+       
+        private Image SaveCompressedImage(Image image, Color[,] pixelsRGB)
         {
             if (image is Bitmap bitmap)
             {
@@ -356,7 +384,7 @@ namespace DCT
                     }
                 }
             }
-            image.Save(path);
+            return image;
         }
     }
 
