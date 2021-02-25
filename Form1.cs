@@ -8,7 +8,6 @@ namespace DCT
     public partial class Form1 : Form
     {
         Calc calc;
-        private readonly Bitmap _sourceImage;
 
         public Form1()
         {
@@ -16,7 +15,6 @@ namespace DCT
             calc = new Calc();
             calc.Initialization();
 
-            //_sourceImage = (Bitmap)Image.FromFile(@"C:\test\test2.bmp");
             trackBar1_Scroll(this, EventArgs.Empty);
         }
 

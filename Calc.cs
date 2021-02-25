@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Drawing;
 using System.Diagnostics;
+using System.Drawing;
 
 namespace DCT
 {
-    class Calc
+    internal class Calc
     {
         private enum Parameter : int { Y, Cb, Cr }
         private float[,] dct, transDCT;
@@ -17,7 +17,7 @@ namespace DCT
 
         public void Initialization()
         {
-            Color[,] pixelsRGB = GetRGBpixels(@"C:\test\test.bmp");
+            Color[,] pixelsRGB = GetRGBpixels(@"C:\test\test.jpg");
 
             pixelsYCbCr = ConvertRGBtoYCbCr(pixelsRGB);
         }
@@ -31,7 +31,7 @@ namespace DCT
 
             stopWatch.Stop();
             TimeSpan ts = stopWatch.Elapsed;
-            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+            string elapsedTime = string.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
             Console.WriteLine("Время выполнения программы: " + elapsedTime);
 
             stopWatch.Restart();
@@ -40,7 +40,7 @@ namespace DCT
 
             stopWatch.Stop();
             ts = stopWatch.Elapsed;
-            elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+            elapsedTime = string.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
             Console.WriteLine("Время выполнения программы: " + elapsedTime);
 
 
@@ -50,7 +50,7 @@ namespace DCT
 
             stopWatch.Stop();
             ts = stopWatch.Elapsed;
-            elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+            elapsedTime = string.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
             Console.WriteLine("Время выполнения программы: " + elapsedTime);
 
             return img;
@@ -121,12 +121,12 @@ namespace DCT
             return pixelsRGB;
         }
 
-        private float Limit(float value, float lower, float upper)
+        private static float Limit(float value, float lower, float upper)
         {
             return Math.Max(lower, Math.Min(value, upper));
         }
 
-        private float[,] GetDCT()
+        private static float[,] GetDCT()
         {
             float[,] dct = new float[8, 8];
             for (int x = 0; x < 8; x++)
@@ -147,7 +147,7 @@ namespace DCT
             return dct;
         }
 
-        private float[,] MulMatrix(float[,] matrix1, float[,] matrix2)
+        private static float[,] MulMatrix(float[,] matrix1, float[,] matrix2)
         {
             int size = matrix1.GetLength(0);
             float[,] result = new float[size, size];
@@ -163,7 +163,7 @@ namespace DCT
             return result;
         }
 
-        private float GetMatrixNode(float[] row, float[] column)
+        private static float GetMatrixNode(float[] row, float[] column)
         {
             float matrixNode = 0;
             for (int i = 0; i < row.Length; i++)
@@ -174,7 +174,7 @@ namespace DCT
             return matrixNode;
         }
 
-        private T[,] GetTransposedMatrix<T>(T[,] matrix)
+        private static T[,] GetTransposedMatrix<T>(T[,] matrix)
         {
             int size = matrix.GetLength(0);
             T[,] tranMatrix = new T[size, size];
@@ -192,7 +192,9 @@ namespace DCT
         private static T[] GetRow<T>(T[,] matrix, int row)
         {
             if (matrix.GetLength(0) <= row)
+            {
                 throw new ArgumentException();
+            }
 
             T[] rowRes = new T[matrix.GetLength(1)];
             for (int i = 0; i < matrix.GetLength(1); i++)
@@ -206,7 +208,9 @@ namespace DCT
         private static T[] GetColumn<T>(T[,] matrix, int column)
         {
             if (matrix.GetLength(0) <= column)
+            {
                 throw new ArgumentException();
+            }
 
             T[] columnRes = new T[matrix.GetLength(1)];
             for (int i = 0; i < matrix.GetLength(1); i++)
@@ -246,7 +250,7 @@ namespace DCT
             return compMatrix;
         }
 
-        private YCbCr[,] GetBlock8x8(YCbCr[,] pixels, int blockCoordX, int blockCoordY)
+        private static YCbCr[,] GetBlock8x8(YCbCr[,] pixels, int blockCoordX, int blockCoordY)
         {
             YCbCr[,] pixelBlock = new YCbCr[8, 8];
 
@@ -307,7 +311,7 @@ namespace DCT
             return matrix;
         }
 
-        private float[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
+        private static float[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
         {
             float[,] parameterBlock = new float[8, 8];
 
@@ -334,7 +338,7 @@ namespace DCT
 
         }
 
-        private void WriteCompressedParameterBlockToYCbCrBlock(YCbCr[,] pixelBlock, float[,] compParameterBlock, Parameter par)
+        private static void WriteCompressedParameterBlockToYCbCrBlock(YCbCr[,] pixelBlock, float[,] compParameterBlock, Parameter par)
         {
             for (int x = 0; x < 8; x++)
             {
@@ -356,7 +360,7 @@ namespace DCT
             }
         }
 
-        private void WriteCompressedBlockToYCbCrMatrix(YCbCr[,] pixels, YCbCr[,] compBlock, int blockCoorX, int blockCoorY)
+        private static void WriteCompressedBlockToYCbCrMatrix(YCbCr[,] pixels, YCbCr[,] compBlock, int blockCoorX, int blockCoorY)
         {
             int pixelBlockCoordX = 0;
             int pixelBlockCoordY = 0;
@@ -371,7 +375,7 @@ namespace DCT
                 }
             }
         }
-       
+
         private Image SaveCompressedImage(Image image, Color[,] pixelsRGB)
         {
             if (image is Bitmap bitmap)
