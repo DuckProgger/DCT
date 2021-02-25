@@ -14,8 +14,7 @@ namespace DCT
 
 
             byte[,,] result_rgb = ByteYCbCrToByteRgb(ycbcr);
-            Bitmap result_image = ByteRgbToBitmap(result_rgb);
-
+            Bitmap result_image = ByteRgbToBitmap(rgb);
             return result_image;
         }
 
@@ -29,12 +28,11 @@ namespace DCT
             int width = bmp.Width,
                 height = bmp.Height;
             byte[,,] rgb = new byte[3, height, width];
-            BitmapData bd = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly,
-                PixelFormat.Format24bppRgb);
+            BitmapData bd = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
             try {
                 byte* curpos;
-                fixed (byte* _res = rgb) {
-                    byte* _r = _res, _g = _res + width * height, _b = _res + 2 * width * height;
+                fixed (byte* _rgb = rgb) {
+                    byte* _r = _rgb, _g = _rgb + width * height, _b = _rgb + 2 * width * height;
                     for (int h = 0; h < height; h++) {
                         curpos = ((byte*)bd.Scan0) + h * bd.Stride;
                         for (int w = 0; w < width; w++) {
@@ -48,6 +46,30 @@ namespace DCT
                 bmp.UnlockBits(bd);
             }
             return rgb;
+        }
+
+        public static unsafe Bitmap ByteRgbToBitmap(byte[,,] rgb) {
+            int width = rgb.GetLength(2),
+               height = rgb.GetLength(1);
+            Bitmap bmp = new Bitmap(width, height);
+            BitmapData bd = bmp.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
+            try {
+                byte* curpos;
+                fixed (byte* _rgb = rgb) {
+                    byte* _r = _rgb, _g = _rgb + width * height, _b = _rgb + 2 * width * height;
+                    for (int h = 0; h < height; h++) {
+                        curpos = ((byte*)bd.Scan0) + h * bd.Stride;
+                        for (int w = 0; w < width; w++) {
+                            *(curpos++) = *_b; ++_b;
+                            *(curpos++) = *_g; ++_g;
+                            *(curpos++) = *_r; ++_r;
+                        }
+                    }
+                }
+            } finally {
+                bmp.UnlockBits(bd);
+            }
+            return bmp;
         }
 
         public static byte[,,] ByteRgbToByteYCbCr(byte[,,] rgb) {
@@ -94,9 +116,6 @@ namespace DCT
             return rgb;
         }
 
-        public static unsafe Bitmap ByteRgbToBitmap(byte[,,] rgb) {
-            return null;
-        }
 
 
 
