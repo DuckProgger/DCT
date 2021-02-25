@@ -17,7 +17,7 @@ namespace DCT
 
         public void Initialization()
         {
-            Color[,] pixelsRGB = GetRGBpixels(@"C:\test\test.jpg");
+            Color[,] pixelsRGB = GetRGBpixels(@"C:\test\test.bmp");
 
             pixelsYCbCr = ConvertRGBtoYCbCr(pixelsRGB);
         }
@@ -147,16 +147,18 @@ namespace DCT
             return dct;
         }
 
-        private static float[,] MulMatrix(float[,] matrix1, float[,] matrix2)
+        private static float[,,] MulMatrix(float[,,] matrix1, float[,] matrix2)
         {
-            int size = matrix1.GetLength(0);
-            float[,] result = new float[size, size];
+            float[,,] result = new float[3, 8, 8];
 
-            for (int x = 0; x < size; x++)
+            for (int x = 0; x < 8; x++)
             {
-                for (int y = 0; y < size; y++)
+                for (int y = 0; y < 8; y++)
                 {
-                    result[x, y] = GetMatrixNode(GetRow(matrix1, x), GetColumn(matrix2, y));
+                    float[] column = GetColumn(matrix2, y);
+                    result[0, x, y] = GetMatrixNode(GetRow(matrix1, 0, x), column);
+                    result[1, x, y] = GetMatrixNode(GetRow(matrix1, 1, x), column);
+                    result[2, x, y] = GetMatrixNode(GetRow(matrix1, 2, x), column);
                 }
             }
 
@@ -189,9 +191,9 @@ namespace DCT
             return tranMatrix;
         }
 
-        private static T[] GetRow<T>(T[,] matrix, int row)
+        private static T[] GetRow<T>(T[,,] matrix, int par, int row)
         {
-            if (matrix.GetLength(0) <= row)
+            if (matrix.GetLength(1) <= row)
             {
                 throw new ArgumentException();
             }
@@ -199,7 +201,7 @@ namespace DCT
             T[] rowRes = new T[matrix.GetLength(1)];
             for (int i = 0; i < matrix.GetLength(1); i++)
             {
-                rowRes[i] = matrix[row, i];
+                rowRes[i] = matrix[par, row, i];
             }
 
             return rowRes;
@@ -271,32 +273,18 @@ namespace DCT
 
         private YCbCr[,] CompressBlock(YCbCr[,] pixelBlock)
         {
-            YCbCr[,] compPixelBlock = new YCbCr[8, 8];
-            Array.Copy(pixelBlock, compPixelBlock, pixelBlock.Length);
-            float[,] tempParameterBlock, tempMatrix;
+            float[,,] tempBlock, tempMatrix;
 
-            tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Y);
-            tempMatrix = MulMatrix(tempParameterBlock, transDCT);
+            tempBlock = GetBlockByYCbCrBlock(pixelBlock);
+            tempMatrix = MulMatrix(tempBlock, transDCT);
             tempMatrix = RemoveExcess(ref tempMatrix);
             tempMatrix = MulMatrix(tempMatrix, dct);
-            WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Y);
+            WriteCompressedBlockToYCbCrBlock(pixelBlock, tempMatrix);
 
-            tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Cb);
-            tempMatrix = MulMatrix(tempParameterBlock, transDCT);
-            tempMatrix = RemoveExcess(ref tempMatrix);
-            tempMatrix = MulMatrix(tempMatrix, dct);
-            WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Cb);
-
-            tempParameterBlock = GetParameterBlockByYCbCrBlock(compPixelBlock, Parameter.Cr);
-            tempMatrix = MulMatrix(tempParameterBlock, transDCT);
-            tempMatrix = RemoveExcess(ref tempMatrix);
-            tempMatrix = MulMatrix(tempMatrix, dct);
-            WriteCompressedParameterBlockToYCbCrBlock(compPixelBlock, tempMatrix, Parameter.Cr);
-
-            return compPixelBlock;
+            return pixelBlock;
         }
 
-        private float[,] RemoveExcess(ref float[,] matrix)
+        private float[,,] RemoveExcess(ref float[,,] matrix)
         {
             int x = firstByteToDeleteX;
             int y = firstByteToDeleteY;
@@ -305,32 +293,25 @@ namespace DCT
             {
                 for (; y < 8; y++)
                 {
-                    matrix[y, x] = 0;
+                    matrix[0, y, x] = 0;
+                    matrix[1, y, x] = 0;
+                    matrix[2, y, x] = 0;
                 }
             }
             return matrix;
         }
 
-        private static float[,] GetParameterBlockByYCbCrBlock(YCbCr[,] pixelBlock, Parameter par)
+        private static float[,,] GetBlockByYCbCrBlock(YCbCr[,] pixelBlock)
         {
-            float[,] parameterBlock = new float[8, 8];
+            float[,,] parameterBlock = new float[3, 8, 8];
 
             for (int x = 0; x < 8; x++)
             {
                 for (int y = 0; y < 8; y++)
                 {
-                    switch (par)
-                    {
-                        case Parameter.Y:
-                            parameterBlock[x, y] = pixelBlock[x, y].Y;
-                            break;
-                        case Parameter.Cb:
-                            parameterBlock[x, y] = pixelBlock[x, y].Cb;
-                            break;
-                        case Parameter.Cr:
-                            parameterBlock[x, y] = pixelBlock[x, y].Cr;
-                            break;
-                    }
+                    parameterBlock[0, x, y] = pixelBlock[x, y].Y;
+                    parameterBlock[1, x, y] = pixelBlock[x, y].Cb;
+                    parameterBlock[2, x, y] = pixelBlock[x, y].Cr;
                 }
             }
 
@@ -338,24 +319,15 @@ namespace DCT
 
         }
 
-        private static void WriteCompressedParameterBlockToYCbCrBlock(YCbCr[,] pixelBlock, float[,] compParameterBlock, Parameter par)
+        private static void WriteCompressedBlockToYCbCrBlock(YCbCr[,] pixelBlock, float[,,] compParameterBlock)
         {
             for (int x = 0; x < 8; x++)
             {
                 for (int y = 0; y < 8; y++)
                 {
-                    switch (par)
-                    {
-                        case Parameter.Y:
-                            pixelBlock[x, y].Y = compParameterBlock[x, y];
-                            break;
-                        case Parameter.Cb:
-                            pixelBlock[x, y].Cb = compParameterBlock[x, y];
-                            break;
-                        case Parameter.Cr:
-                            pixelBlock[x, y].Cr = compParameterBlock[x, y];
-                            break;
-                    }
+                    pixelBlock[x, y].Y = compParameterBlock[0, x, y];
+                    pixelBlock[x, y].Cb = compParameterBlock[1, x, y];
+                    pixelBlock[x, y].Cr = compParameterBlock[2, x, y];
                 }
             }
         }
