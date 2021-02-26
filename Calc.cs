@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 
 namespace DCT
 {
@@ -14,10 +15,11 @@ namespace DCT
         private int firstByteToDelete;
         private int firstByteToDeleteX, firstByteToDeleteY;
         private YCbCr[,] pixelsYCbCr;
+        Color[,] pixelsRGB;
 
         public void Initialization()
         {
-            Color[,] pixelsRGB = GetRGBpixels(@"C:\test\test.bmp");
+             pixelsRGB = GetRGBpixels(@"C:\test\test.bmp");
 
             pixelsYCbCr = ConvertRGBtoYCbCr(pixelsRGB);
         }
@@ -34,6 +36,11 @@ namespace DCT
             string elapsedTime = string.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
             Console.WriteLine("Время выполнения программы: " + elapsedTime);
 
+
+
+
+
+
             stopWatch.Restart();
 
             Color[,] compPixelsRGB = ConvertYCbCrtoRGB(compImage);
@@ -44,9 +51,14 @@ namespace DCT
             Console.WriteLine("Время выполнения программы: " + elapsedTime);
 
 
+
+
             stopWatch.Restart();
 
-            Image img = SaveCompressedImage(image, compPixelsRGB);
+            byte[] buffer = ConvertRGBtoByteBuffer(compPixelsRGB);
+            Image img = GetCompressedImage(buffer, @"C:\test\test.bmp");
+
+            //Image img = SaveCompressedImage(image, compPixelsRGB);
 
             stopWatch.Stop();
             ts = stopWatch.Elapsed;
@@ -226,7 +238,8 @@ namespace DCT
         private YCbCr[,] GetCompressedPixelMatrix(YCbCr[,] pixelsYCbCr, int quality)
         {
             YCbCr[,] compMatrix = new YCbCr[width, height];
-            YCbCr[,] pixelBlock, compPixelBlock;
+            YCbCr[,] pixelBlock;
+            float[,,] compPixelBlock;
             int numberOfXblocks = width / 8;
             int numberOfYblocks = height / 8;
 
@@ -271,17 +284,16 @@ namespace DCT
             return pixelBlock;
         }
 
-        private YCbCr[,] CompressBlock(YCbCr[,] pixelBlock)
+        private float[,,] CompressBlock(YCbCr[,] pixelBlock)
         {
-            float[,,] tempBlock, tempMatrix;
+            float[,,] tempBlock;
 
             tempBlock = GetBlockByYCbCrBlock(pixelBlock);
-            tempMatrix = MulMatrix(tempBlock, transDCT);
-            tempMatrix = RemoveExcess(ref tempMatrix);
-            tempMatrix = MulMatrix(tempMatrix, dct);
-            WriteCompressedBlockToYCbCrBlock(pixelBlock, tempMatrix);
+            //tempBlock = MulMatrix(tempBlock, transDCT);
+            //tempBlock = RemoveExcess(ref tempBlock);
+            //tempBlock = MulMatrix(tempBlock, dct);
 
-            return pixelBlock;
+            return tempBlock;
         }
 
         private float[,,] RemoveExcess(ref float[,,] matrix)
@@ -319,20 +331,7 @@ namespace DCT
 
         }
 
-        private static void WriteCompressedBlockToYCbCrBlock(YCbCr[,] pixelBlock, float[,,] compParameterBlock)
-        {
-            for (int x = 0; x < 8; x++)
-            {
-                for (int y = 0; y < 8; y++)
-                {
-                    pixelBlock[x, y].Y = compParameterBlock[0, x, y];
-                    pixelBlock[x, y].Cb = compParameterBlock[1, x, y];
-                    pixelBlock[x, y].Cr = compParameterBlock[2, x, y];
-                }
-            }
-        }
-
-        private static void WriteCompressedBlockToYCbCrMatrix(YCbCr[,] pixels, YCbCr[,] compBlock, int blockCoorX, int blockCoorY)
+        private static void WriteCompressedBlockToYCbCrMatrix(YCbCr[,] pixels, float[,,] compBlock, int blockCoorX, int blockCoorY)
         {
             int pixelBlockCoordX = 0;
             int pixelBlockCoordY = 0;
@@ -343,25 +342,60 @@ namespace DCT
             {
                 for (int y = offsetY; y < offsetY + 8; y++, pixelBlockCoordY++)
                 {
-                    pixels[x, y] = compBlock[pixelBlockCoordX, pixelBlockCoordY];
+                    pixels[x, y].Y = compBlock[0, pixelBlockCoordX, pixelBlockCoordY];
+                    pixels[x, y].Cb = compBlock[1, pixelBlockCoordX, pixelBlockCoordY];
+                    pixels[x, y].Cr = compBlock[2, pixelBlockCoordX, pixelBlockCoordY];
                 }
             }
         }
 
-        private Image SaveCompressedImage(Image image, Color[,] pixelsRGB)
+        private byte[] ConvertRGBtoByteBuffer(Color[,] pixels)
         {
-            if (image is Bitmap bitmap)
+            byte[] buffer = new byte[width * height * 3];
+            int byteNumber = 0;
+
+            for (int x = 0; x < width; x++)
             {
-                for (int x = 0; x < width; x++)
+                for (int y = 0; y < height; y++, byteNumber += 3)
                 {
-                    for (int y = 0; y < height; y++)
-                    {
-                        bitmap.SetPixel(x, y, pixelsRGB[x, y]);
-                    }
+                    buffer[byteNumber] = pixels[x, y].B;
+                    buffer[byteNumber + 1] = pixels[x, y].G;
+                    buffer[byteNumber + 2] = pixels[x, y].R;
                 }
             }
-            return image;
+
+            return buffer;
         }
+
+        private static Image GetCompressedImage(byte[] buffer, string path)
+        {
+            byte[] header = File.ReadAllBytes(path);
+            byte[] bufferWithHeader = new byte[buffer.Length + 54];
+
+            Array.Copy(header, bufferWithHeader, 54);
+            Array.Copy(buffer, 0, bufferWithHeader, 54, buffer.Length);
+
+            using (MemoryStream memoryStream = new MemoryStream(bufferWithHeader))
+            {
+                Bitmap img = (Bitmap)Image.FromStream(memoryStream);                
+                return Image.FromStream(memoryStream);
+            }
+        }
+
+        //private Image SaveCompressedImage(Image image, Color[,] pixelsRGB)
+        //{
+        //    if (image is Bitmap bitmap)
+        //    {
+        //        for (int x = 0; x < width; x++)
+        //        {
+        //            for (int y = 0; y < height; y++)
+        //            {
+        //                bitmap.SetPixel(x, y, pixelsRGB[x, y]);
+        //            }
+        //        }
+        //    }
+        //    return image;
+        //}
     }
 
 }

@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace DCT
+﻿namespace DCT
 {
-    struct YCbCr
+    internal struct YCbCr
     {
         public float Y { get; set; }
         public float Cb { get; set; }
-        public float Cr { get; set; }        
+        public float Cr { get; set; }
     }
 }

@@ -39,9 +39,9 @@ namespace DCT
 
 
 
-        private Image processImage(int quality)
+        private Bitmap processImage(int quality)
         {
-            Image image = (Bitmap)calc.CompressImage(quality);
+            Bitmap image = (Bitmap)calc.CompressImage(quality);
 
             return image;
         }
