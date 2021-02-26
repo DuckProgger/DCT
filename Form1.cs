@@ -4,17 +4,15 @@ using System.Windows.Forms;
 
 namespace DCT
 {
-
     public partial class Form1 : Form
     {
-        Calc calc;
+        private readonly Bitmap _sourceImage;
 
         public Form1()
         {
             InitializeComponent();
-            calc = new Calc();
-            calc.Initialization();
 
+            _sourceImage = (Bitmap)Image.FromFile(@"2969267161300910242.bmp");
             trackBar1_Scroll(this, EventArgs.Empty);
         }
 
@@ -28,7 +26,7 @@ namespace DCT
             try
             {
                 pictureBox1.Image = null;
-                pictureBox1.Image = processImage(quality);
+                pictureBox1.Image = processImage(_sourceImage, quality);
                 Text = quality.ToString();
             }
             catch (Exception ex)
@@ -37,13 +35,9 @@ namespace DCT
             }
         }
 
-
-
-        private Bitmap processImage(int quality)
+        private Image processImage(Bitmap srcImage, int quality)
         {
-            Bitmap image = (Bitmap)calc.CompressImage(quality);
-
-            return image;
+            return ImageShakalizer.Damage(srcImage, quality);
         }
 
         private void pictureBox1_Click(object sender, EventArgs e)
