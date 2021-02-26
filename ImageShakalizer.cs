@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Text;
 
 namespace DCT
 {
@@ -21,6 +22,51 @@ namespace DCT
 
 
 
+
+        private static void Process(double[,,] ycbcr, int quantizator) {
+            double[,] dct_matrix = CreateDCTMatrix(8.0);
+            double[,] dct_matrix_transpose = TransposeMatrix(dct_matrix);
+            double[,] q_matrix = CreateQuantMatrix(quantizator);
+
+            int heigth = ycbcr.GetLength(1);
+            int width = ycbcr.GetLength(2);
+
+            // цикл по блокам 8х8
+            for (int block_y = 0; block_y < heigth; block_y += 8) {
+                for (int block_x = 0; block_x < width; block_x += 8) {
+
+                    double[,] cb_block = GetBlock(ycbcr, 1, block_y, block_x);
+                    double[,] cr_block = GetBlock(ycbcr, 2, block_y, block_x);
+
+                    LinearRound(cb_block);
+                    LinearRound(cr_block);
+
+                    double[,] t_matrix_cb = MultipleMatrix(cb_block, dct_matrix_transpose);
+                    double[,] t_matrix_cr = MultipleMatrix(cr_block, dct_matrix_transpose);
+
+                    LinearRound(t_matrix_cb);
+                    LinearRound(t_matrix_cr);
+
+                    LinearDivide(t_matrix_cb, q_matrix);
+                    LinearDivide(t_matrix_cr, q_matrix);
+
+                    LinearRound(t_matrix_cb);
+                    LinearRound(t_matrix_cr);
+
+                    LinearMultiple(t_matrix_cb, q_matrix);
+                    LinearMultiple(t_matrix_cr, q_matrix);
+
+                    t_matrix_cb = MultipleMatrix(t_matrix_cb, dct_matrix);
+                    t_matrix_cr = MultipleMatrix(t_matrix_cr, dct_matrix);
+
+                    LinearRound(t_matrix_cb);
+                    LinearRound(t_matrix_cr);
+
+                    SetBlock(ycbcr, t_matrix_cb, 1, block_y, block_x);
+                    SetBlock(ycbcr, t_matrix_cr, 2, block_y, block_x);
+                }
+            }
+        }
 
         private static unsafe byte[,,] BitmapToByteRgb(Bitmap bmp) {
             //https://habr.com/ru/post/196578/
@@ -105,40 +151,7 @@ namespace DCT
             return rgb;
         }
 
-        private static void Process(double[,,] ycbcr, int quantizator) {
-            double[,] dct_matrix = GetDCTMatrix(8.0);
-            double[,] dct_matrix_transpose = TransposeMatrix(dct_matrix);
-            double[,] q_matrix = GetQuantMatrix(quantizator);
-
-            double[,] t_matrix_cb = new double[8, 8];
-            double[,] t_matrix_cr = new double[8, 8];
-
-            int heigth = ycbcr.GetLength(1);
-            int width = ycbcr.GetLength(2);
-
-            // цикл по блокам 8х8
-            for (int block_h = 0; block_h < heigth; block_h += 8) {
-                for (int block_w = 0; block_w < width; block_w += 8) {
-
-                    double[,] cb_block = GetBlock(ycbcr, 1, block_h, block_w);
-                    double[,] cr_block = GetBlock(ycbcr, 2, block_h, block_w);
-
-                    t_matrix_cb = MultipleMatrix(cb_block, dct_matrix_transpose);
-                    t_matrix_cr = MultipleMatrix(cr_block, dct_matrix_transpose);
-
-                    //LinearDivide(t_matrix_cb, q_matrix);
-                    //LinearDivide(t_matrix_cr, q_matrix);
-
-                    double[,] cb_block_new = MultipleMatrix(t_matrix_cb, dct_matrix);
-                    double[,] cr_block_new = MultipleMatrix(t_matrix_cr, dct_matrix);
-
-                    SetBlock(ycbcr, cb_block_new, 1, block_h, block_w);
-                    SetBlock(ycbcr, cr_block_new, 2, block_h, block_w);
-                }
-            }
-        }
-
-        private static double[,] GetDCTMatrix(double n) {
+        private static double[,] CreateDCTMatrix(double n) {
             double[,] dct_matrix = new double[8, 8];
             for (int i = 0; i < 8; i++) {
                 for (int j = 0; j < 8; j++) {
@@ -152,7 +165,7 @@ namespace DCT
             return dct_matrix;
         }
 
-        private static double[,] GetQuantMatrix(int q) {
+        private static double[,] CreateQuantMatrix(int q) {
             double[,] q_matrix = new double[8, 8];
             for (int i = 0; i < 8; i++) {
                 for (int j = 0; j < 8; j++) {
@@ -230,6 +243,42 @@ namespace DCT
                     a[y, x] /= b[y, x];
                 }
             }
+        }
+
+        private static void LinearMultiple(double[,] a, double[,] b) {
+            int ay = a.GetLength(0);
+            int ax = a.GetLength(1);
+            for (int y = 0; y < ay; y++) {
+                for (int x = 0; x < ax; x++) {
+                    a[y, x] *= b[y, x];
+                }
+            }
+        }
+
+        private static void LinearRound(double[,] a) {
+            int ay = a.GetLength(0);
+            int ax = a.GetLength(1);
+            for (int y = 0; y < ay; y++) {
+                for (int x = 0; x < ax; x++) {
+                    a[y, x] = Math.Round(a[y, x]);
+                }
+            }
+        }
+
+
+
+
+        private static string DEBUG_TOTEXT(double[,] a) {
+            StringBuilder str = new StringBuilder();
+            int ay = a.GetLength(0);
+            int ax = a.GetLength(1);
+            for (int y = 0; y < ay; y++) {
+                for (int x = 0; x < ax; x++) {
+                    str.Append(a[y, x] + "\t");
+                }
+                str.AppendLine();
+            }
+            return str.ToString();
         }
     }
 }
