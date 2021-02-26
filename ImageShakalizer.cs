@@ -31,12 +31,14 @@ namespace DCT
                 for (int block_x = 0; block_x < width; block_x += 8) {
                     for (int dimension = 0; dimension <= 2; dimension++) {
 
+                        // кодирование
                         MultipleMatrix(dimension, block_y, block_x, dct_matrix_transpose);
-
+                        
                         LinearDivide(dimension, block_y, block_x, q_matrix);
-
+                        
                         LinearRound(dimension, block_y, block_x);
 
+                        // декодирование
                         LinearMultiple(dimension, block_y, block_x, q_matrix);
 
                         MultipleMatrix(dimension, block_y, block_x, dct_matrix);
