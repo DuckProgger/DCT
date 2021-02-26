@@ -7,10 +7,15 @@ namespace DCT
     public partial class Form1 : Form
     {
         private readonly Bitmap _sourceImage;
+        Calc _calc;
+
 
         public Form1()
         {
             InitializeComponent();
+
+            _calc = new Calc();
+            _calc.Initialization();
 
             _sourceImage = (Bitmap)Image.FromFile(@"2969267161300910242.bmp");
             trackBar1_Scroll(this, EventArgs.Empty);
@@ -37,7 +42,10 @@ namespace DCT
 
         private Image processImage(Bitmap srcImage, int quality)
         {
-            return ImageShakalizer.Damage(srcImage, quality);
+            Bitmap image = (Bitmap)_calc.CompressImage(quality);
+            return image;
+
+            //return ImageShakalizer.Damage(srcImage, quality);
         }
 
         private void pictureBox1_Click(object sender, EventArgs e)
