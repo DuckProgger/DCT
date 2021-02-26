@@ -8,16 +8,19 @@ namespace DCT
     {
         private readonly Bitmap _sourceImage;
         Calc _calc;
+        ImageShakalizer _imageShakalizer;
 
 
         public Form1()
         {
             InitializeComponent();
+            _sourceImage = (Bitmap)Image.FromFile(@"2969267161300910242.bmp");
 
             _calc = new Calc();
             _calc.Initialization();
 
-            _sourceImage = (Bitmap)Image.FromFile(@"2969267161300910242.bmp");
+            //_imageShakalizer = new ImageShakalizer(_sourceImage);
+
             trackBar1_Scroll(this, EventArgs.Empty);
         }
 
@@ -45,12 +48,7 @@ namespace DCT
             Bitmap image = (Bitmap)_calc.CompressImage(quality);
             return image;
 
-            //return ImageShakalizer.Damage(srcImage, quality);
-        }
-
-        private void pictureBox1_Click(object sender, EventArgs e)
-        {
-
+            //return _imageShakalizer.Shakalize(quality);
         }
     }
 }
