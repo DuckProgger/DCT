@@ -7,30 +7,12 @@ namespace DCT
     public class ImageShakalizer
     {
         public static Image Damage(Bitmap srcImage, int quality) {
-
-            double[,] a = new double[,] {
-                {  3, -1,  2 },
-                {  4,  2,  0 },
-                { -5,  6,  1} };
-
-            double[,] b = new double[,] {
-                {  8,  1 },
-                {  7,  2 },
-                {  2, -3 } };
-
-            double[,] c = ImageShakalizer.MultipleMatrix(a, b);
-
-
-
             byte[,,] rgb = BitmapToByteRgb(srcImage);
             double[,,] ycbcr = ByteRgbToByteYCbCr(rgb);
             Process(ycbcr, quality);
             byte[,,] result_rgb = ByteYCbCrToByteRgb(ycbcr);
             Bitmap result_image = ByteRgbToBitmap(result_rgb);
-
-            result_image.Save("ddd.bmp", ImageFormat.Png);
             return result_image;
-
         }
 
 
@@ -143,7 +125,7 @@ namespace DCT
 
                     t_matrix_cb = MultipleMatrix(cb_block, dct_matrix_transpose);
                     t_matrix_cr = MultipleMatrix(cr_block, dct_matrix_transpose);
-                   
+
                     //LinearDivide(t_matrix_cb, q_matrix);
                     //LinearDivide(t_matrix_cr, q_matrix);
 
@@ -180,8 +162,6 @@ namespace DCT
             return q_matrix;
         }
 
-
-
         private static byte ToByte(double value) {
             if (value <= 0.0) {
                 return 0;
@@ -192,17 +172,7 @@ namespace DCT
             }
         }
 
-        private static sbyte ToSByte(double value) {
-            if (value <= -128.0) {
-                return -128;
-            } else if (value >= 127.0) {
-                return 127;
-            } else {
-                return (sbyte)Math.Round(value);
-            }
-        }
-
-        public static double[,] TransposeMatrix(double[,] a) {
+        private static double[,] TransposeMatrix(double[,] a) {
             int ay = a.GetLength(0);
             int ax = a.GetLength(1);
             double[,] matrix = new double[ax, ay];
@@ -214,7 +184,7 @@ namespace DCT
             return matrix;
         }
 
-        public static double[,] MultipleMatrix(double[,] a, double[,] b) {
+        private static double[,] MultipleMatrix(double[,] a, double[,] b) {
             int by = b.GetLength(0);
             int ax = a.GetLength(1);
             int bx = b.GetLength(1);
@@ -234,7 +204,7 @@ namespace DCT
             return matrix;
         }
 
-        public static double[,] GetBlock(double[,,] matrix, int dimension, int offset_y, int offset_x) {
+        private static double[,] GetBlock(double[,,] matrix, int dimension, int offset_y, int offset_x) {
             double[,] block = new double[8, 8];
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
@@ -244,7 +214,7 @@ namespace DCT
             return block;
         }
 
-        public static void SetBlock(double[,,] matrix, double[,] block, int dimension, int offset_y, int offset_x) {
+        private static void SetBlock(double[,,] matrix, double[,] block, int dimension, int offset_y, int offset_x) {
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
                     matrix[dimension, y + offset_y, x + offset_x] = block[y, x];
@@ -252,7 +222,7 @@ namespace DCT
             }
         }
 
-        public static void LinearDivide(double[,] a, double[,] b) {
+        private static void LinearDivide(double[,] a, double[,] b) {
             int ay = a.GetLength(0);
             int ax = a.GetLength(1);
             for (int y = 0; y < ay; y++) {
@@ -261,6 +231,5 @@ namespace DCT
                 }
             }
         }
-
     }
 }
