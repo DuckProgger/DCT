@@ -11,6 +11,7 @@ namespace DCT
         private readonly float[,,] ycbcr_matrix_original;
         private readonly int heigth;
         private readonly int width;
+        private readonly int blocks_count;
 
         private float[,,] ycbcr_matrix;
         private float[,] dct_matrix;
@@ -22,6 +23,7 @@ namespace DCT
             ycbcr_matrix_original = ByteRgbToByteYCbCr(rgbMatrix);
             heigth = ycbcr_matrix_original.GetLength(1);
             width = ycbcr_matrix_original.GetLength(2);
+            blocks_count = ycbcr_matrix_original.Length / 64;
         }
 
         public Bitmap Shakalize(int quality) {
@@ -30,8 +32,7 @@ namespace DCT
             dct_matrix_transpose = TransposeMatrix(dct_matrix);
             q_matrix = CreateQuantMatrix(quality);
 
-            int blocksCount = ycbcr_matrix.Length / 64;
-            List<Task> tasks = new List<Task>(blocksCount);
+            List<Task> tasks = new List<Task>(blocks_count);
 
             // цикл по блокам 8х8
             for (int dimension = 0; dimension <= 2; dimension++) {
@@ -43,7 +44,7 @@ namespace DCT
                         int current_dimension = dimension;
                         Action prepareBlockAction = () => PrepareBlock(current_dimension, current_block_y, current_block_x);
 
-                        if (blocksCount <= 1000) {
+                        if (blocks_count <= 1000) {
                             // если картинка небольшая, код будет выполняться синхронно
                             prepareBlockAction.Invoke();
                         } else {
