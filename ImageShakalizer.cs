@@ -32,16 +32,16 @@ namespace DCT
                     for (int dimension = 0; dimension <= 2; dimension++) {
 
                         // кодирование
-                        MultipleMatrix(dimension, block_y, block_x, dct_matrix_transpose);
-                        
-                        LinearDivide(dimension, block_y, block_x, q_matrix);
-                        
-                        LinearRound(dimension, block_y, block_x);
+                        MultipleBlock(dimension, block_y, block_x, dct_matrix_transpose);
+
+                        LinearDivideBlock(dimension, block_y, block_x, q_matrix);
+
+                        LinearRoundBlock(dimension, block_y, block_x);
 
                         // декодирование
-                        LinearMultiple(dimension, block_y, block_x, q_matrix);
+                        LinearMultipleBlock(dimension, block_y, block_x, q_matrix);
 
-                        MultipleMatrix(dimension, block_y, block_x, dct_matrix);
+                        MultipleBlock(dimension, block_y, block_x, dct_matrix);
                     }
                 }
             }
@@ -60,7 +60,7 @@ namespace DCT
             return matrix;
         }
 
-        private void MultipleMatrix(int dimension, int offset_y, int offset_x, double[,] b) {
+        private void MultipleBlock(int dimension, int offset_y, int offset_x, double[,] b) {
             ReadTempBlock(dimension, offset_y, offset_x);
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
@@ -104,7 +104,7 @@ namespace DCT
             }
         }
 
-        private void LinearDivide(int dimension, int offset_y, int offset_x, double[,] b) {
+        private void LinearDivideBlock(int dimension, int offset_y, int offset_x, double[,] b) {
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
                     yCbCrMatrix[dimension, y + offset_y, x + offset_x] /= b[y, x];
@@ -112,7 +112,7 @@ namespace DCT
             }
         }
 
-        private void LinearRound(int dimension, int offset_y, int offset_x) {
+        private void LinearRoundBlock(int dimension, int offset_y, int offset_x) {
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
                     yCbCrMatrix[dimension, y + offset_y, x + offset_x] = Math.Round(yCbCrMatrix[dimension, y + offset_y, x + offset_x]);
@@ -120,7 +120,7 @@ namespace DCT
             }
         }
 
-        private void LinearMultiple(int dimension, int offset_y, int offset_x, double[,] b) {
+        private void LinearMultipleBlock(int dimension, int offset_y, int offset_x, double[,] b) {
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
                     yCbCrMatrix[dimension, y + offset_y, x + offset_x] *= b[y, x];
