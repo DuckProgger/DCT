@@ -1,82 +1,110 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Threading.Tasks;
 
 namespace DCT
 {
     public class ImageShakalizer
     {
-        private readonly float[,,] originalYCbCrMatrix;
-        private float[,,] yCbCrMatrix;
+        private readonly float[,,] ycbcr_matrix_original;
         private readonly int heigth;
         private readonly int width;
-        private readonly float[,] tempBlock = new float[8, 8];
 
+        private float[,,] ycbcr_matrix;
+        private float[,] dct_matrix;
+        private float[,] dct_matrix_transpose;
+        private float[,] q_matrix;
 
         public ImageShakalizer(Bitmap bitmap) {
             byte[,,] rgbMatrix = BitmapToByteRgb(bitmap);
-            originalYCbCrMatrix = ByteRgbToByteYCbCr(rgbMatrix);
-            heigth = originalYCbCrMatrix.GetLength(1);
-            width = originalYCbCrMatrix.GetLength(2);
+            ycbcr_matrix_original = ByteRgbToByteYCbCr(rgbMatrix);
+            heigth = ycbcr_matrix_original.GetLength(1);
+            width = ycbcr_matrix_original.GetLength(2);
         }
 
         public Bitmap Shakalize(int quality) {
-            yCbCrMatrix = CloneYCbCrMatrix();
-            float[,] dct_matrix = CreateDCTMatrix(8f);
-            float[,] dct_matrix_transpose = TransposeMatrix(dct_matrix);
-            float[,] q_matrix = CreateQuantMatrix(quality);
+            ycbcr_matrix = CloneYCbCrMatrix();
+            dct_matrix = CreateDCTMatrix(8f);
+            dct_matrix_transpose = TransposeMatrix(dct_matrix);
+            q_matrix = CreateQuantMatrix(quality);
+
+            int blocksCount = ycbcr_matrix.Length / 64;
+            List<Task> tasks = new List<Task>(blocksCount);
 
             // цикл по блокам 8х8
-            for (int block_y = 0; block_y < heigth; block_y += 8) {
-                for (int block_x = 0; block_x < width; block_x += 8) {
-                    for (int dimension = 0; dimension <= 2; dimension++) {
+            for (int dimension = 0; dimension <= 2; dimension++) {
+                for (int block_y = 0; block_y < heigth; block_y += 8) {
+                    for (int block_x = 0; block_x < width; block_x += 8) {
 
-                        // кодирование
-                        MultipleBlock(dimension, block_y, block_x, dct_matrix_transpose);
+                        int current_block_y = block_y;
+                        int current_block_x = block_x;
+                        int current_dimension = dimension;
+                        Action prepareBlockAction = () => PrepareBlock(current_dimension, current_block_y, current_block_x);
 
-                        LinearDivideBlock(dimension, block_y, block_x, q_matrix);
-
-                        LinearRoundBlock(dimension, block_y, block_x);
-
-                        // декодирование
-                        LinearMultipleBlock(dimension, block_y, block_x, q_matrix);
-
-                        MultipleBlock(dimension, block_y, block_x, dct_matrix);
+                        if (blocksCount <= 1000) {
+                            // если картинка небольшая, код будет выполняться синхронно
+                            prepareBlockAction.Invoke();
+                        } else {
+                            // в случае большой картинки обработка каждого блока будет выполнена в отдельной задаче
+                            Task task = Task.Run(prepareBlockAction);
+                            tasks.Add(task);
+                        }
                     }
                 }
             }
 
-            byte[,,] rgb = ByteYCbCrToByteRgb(yCbCrMatrix);
+            // ожидание, когда все асинхронные задачи по обработке блоков будут выполнены
+            Task.WaitAll(tasks.ToArray());
+
+            byte[,,] rgb = ByteYCbCrToByteRgb(ycbcr_matrix);
             return ByteRgbToBitmap(rgb);
         }
 
 
         private float[,,] CloneYCbCrMatrix() {
             float[,,] matrix = new float[
-                originalYCbCrMatrix.GetLength(0),
-                originalYCbCrMatrix.GetLength(1),
-                originalYCbCrMatrix.GetLength(2)];
-            Array.Copy(originalYCbCrMatrix, matrix, matrix.Length);
+                ycbcr_matrix_original.GetLength(0),
+                ycbcr_matrix_original.GetLength(1),
+                ycbcr_matrix_original.GetLength(2)];
+            Array.Copy(ycbcr_matrix_original, matrix, matrix.Length);
             return matrix;
         }
 
-        private void MultipleBlock(int dimension, int offset_y, int offset_x, float[,] matrix) {
-            ReadTempBlock(dimension, offset_y, offset_x);
+        private void PrepareBlock(int dimension, int offset_y, int offset_x) {
+            float[,] temp_block = new float[8, 8];
+
+            // кодирование
+            MultipleBlock(dimension, offset_y, offset_x, dct_matrix_transpose, temp_block);
+
+            LinearDivideBlock(dimension, offset_y, offset_x, q_matrix);
+
+            LinearRoundBlock(dimension, offset_y, offset_x);
+
+            // декодирование
+            LinearMultipleBlock(dimension, offset_y, offset_x, q_matrix);
+
+            MultipleBlock(dimension, offset_y, offset_x, dct_matrix, temp_block);
+        }
+
+        private void MultipleBlock(int dimension, int offset_y, int offset_x, float[,] matrix, float[,] temp_block) {
+            ReadTempBlock(dimension, offset_y, offset_x, temp_block);
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
                     float value = 0f;
                     for (int i = 0; i < 8; i++) {
-                        value += tempBlock[y, i] * matrix[i, x];
+                        value += temp_block[y, i] * matrix[i, x];
                     }
-                    yCbCrMatrix[dimension, y + offset_y, x + offset_x] = value;
+                    ycbcr_matrix[dimension, y + offset_y, x + offset_x] = value;
                 }
             }
         }
 
-        private void ReadTempBlock(int dimension, int offset_y, int offset_x) {
+        private void ReadTempBlock(int dimension, int offset_y, int offset_x, float[,] tempBlock) {
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
-                    tempBlock[y, x] = yCbCrMatrix[dimension, y + offset_y, x + offset_x];
+                    tempBlock[y, x] = ycbcr_matrix[dimension, y + offset_y, x + offset_x];
                 }
             }
         }
@@ -84,7 +112,7 @@ namespace DCT
         private void LinearDivideBlock(int dimension, int offset_y, int offset_x, float[,] matrix) {
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
-                    yCbCrMatrix[dimension, y + offset_y, x + offset_x] /= matrix[y, x];
+                    ycbcr_matrix[dimension, y + offset_y, x + offset_x] /= matrix[y, x];
                 }
             }
         }
@@ -92,7 +120,7 @@ namespace DCT
         private void LinearRoundBlock(int dimension, int offset_y, int offset_x) {
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
-                    yCbCrMatrix[dimension, y + offset_y, x + offset_x] = (float)Math.Round(yCbCrMatrix[dimension, y + offset_y, x + offset_x]);
+                    ycbcr_matrix[dimension, y + offset_y, x + offset_x] = (float)Math.Round(ycbcr_matrix[dimension, y + offset_y, x + offset_x]);
                 }
             }
         }
@@ -100,7 +128,7 @@ namespace DCT
         private void LinearMultipleBlock(int dimension, int offset_y, int offset_x, float[,] matrix) {
             for (int y = 0; y < 8; y++) {
                 for (int x = 0; x < 8; x++) {
-                    yCbCrMatrix[dimension, y + offset_y, x + offset_x] *= matrix[y, x];
+                    ycbcr_matrix[dimension, y + offset_y, x + offset_x] *= matrix[y, x];
                 }
             }
         }
