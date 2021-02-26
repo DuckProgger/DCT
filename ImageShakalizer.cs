@@ -34,36 +34,26 @@ namespace DCT
             // цикл по блокам 8х8
             for (int block_y = 0; block_y < heigth; block_y += 8) {
                 for (int block_x = 0; block_x < width; block_x += 8) {
+                    for (int dimension = 0; dimension <= 2; dimension++) {
 
-                    double[,] cb_block = GetBlock(ycbcr, 1, block_y, block_x);
-                    double[,] cr_block = GetBlock(ycbcr, 2, block_y, block_x);
+                        double[,] block = GetBlock(ycbcr, dimension, block_y, block_x);
+                        LinearRound(block);
 
-                    LinearRound(cb_block);
-                    LinearRound(cr_block);
+                        double[,] t_matrix = MultipleMatrix(block, dct_matrix_transpose);
+                        LinearRound(t_matrix);
 
-                    double[,] t_matrix_cb = MultipleMatrix(cb_block, dct_matrix_transpose);
-                    double[,] t_matrix_cr = MultipleMatrix(cr_block, dct_matrix_transpose);
 
-                    LinearRound(t_matrix_cb);
-                    LinearRound(t_matrix_cr);
+                        LinearDivide(t_matrix, q_matrix);
+                        LinearRound(t_matrix);
 
-                    LinearDivide(t_matrix_cb, q_matrix);
-                    LinearDivide(t_matrix_cr, q_matrix);
+                        LinearRound(t_matrix);
+                        LinearMultiple(t_matrix, q_matrix);
 
-                    LinearRound(t_matrix_cb);
-                    LinearRound(t_matrix_cr);
+                        t_matrix = MultipleMatrix(t_matrix, dct_matrix);
 
-                    LinearMultiple(t_matrix_cb, q_matrix);
-                    LinearMultiple(t_matrix_cr, q_matrix);
-
-                    t_matrix_cb = MultipleMatrix(t_matrix_cb, dct_matrix);
-                    t_matrix_cr = MultipleMatrix(t_matrix_cr, dct_matrix);
-
-                    LinearRound(t_matrix_cb);
-                    LinearRound(t_matrix_cr);
-
-                    SetBlock(ycbcr, t_matrix_cb, 1, block_y, block_x);
-                    SetBlock(ycbcr, t_matrix_cr, 2, block_y, block_x);
+                        LinearRound(t_matrix);
+                        SetBlock(ycbcr, t_matrix, dimension, block_y, block_x);
+                    }
                 }
             }
         }
@@ -126,9 +116,10 @@ namespace DCT
                     byte r = rgb[0, h, w];
                     byte g = rgb[1, h, w];
                     byte b = rgb[2, h, w];
-                    ycbcr[0, h, w] = (0.299 * r) + (0.587 * g) + (0.114 * b);
-                    ycbcr[1, h, w] = 128.0 - (0.168736 * r) - (0.331264 * g) + (0.5 * b);
-                    ycbcr[2, h, w] = 128.0 + (0.5 * r) - (0.418688 * g) - (0.081312 * b);
+                    double y = 0.299 * r + 0.587 * g + 0.114 * b;
+                    ycbcr[0, h, w] = y;
+                    ycbcr[1, h, w] = 0.564 * (b - y);
+                    ycbcr[2, h, w] = 0.713 * (r - y);
                 }
             }
             return ycbcr;
@@ -143,9 +134,9 @@ namespace DCT
                     double y = ycbcr[0, h, w];
                     double cb = ycbcr[1, h, w];
                     double cr = ycbcr[2, h, w];
-                    rgb[0, h, w] = ToByte(y + 1.402 * (cr - 128.0));
-                    rgb[1, h, w] = ToByte(y - 0.34414 * (cb - 128.0) - 0.71414 * (cr - 128.0));
-                    rgb[2, h, w] = ToByte(y + 1.772 * (cb - 128.0));
+                    rgb[0, h, w] = ToByte(y + 1.402 * cr);
+                    rgb[1, h, w] = ToByte(y - 0.344 * cb - 0.714 * cr);
+                    rgb[2, h, w] = ToByte(y + 1.772 * cb);
                 }
             }
             return rgb;
@@ -254,6 +245,7 @@ namespace DCT
                 }
             }
         }
+
 
         private static void LinearRound(double[,] a) {
             int ay = a.GetLength(0);
