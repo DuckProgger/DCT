@@ -9,7 +9,7 @@ namespace DCT
         public static Image Damage(Bitmap srcImage, int quality) {
             byte[,,] rgb = BitmapToByteRgb(srcImage);
             byte[,,] ycbcr = ByteRgbToByteYCbCr(rgb);
-            Quantization(ycbcr, quality);
+            Process(ycbcr, quality);
             byte[,,] result_rgb = ByteYCbCrToByteRgb(ycbcr);
             Bitmap result_image = ByteRgbToBitmap(result_rgb);
 
@@ -108,7 +108,7 @@ namespace DCT
             return rgb;
         }
 
-        private static void Quantization(byte[,,] ycbcr, int quantizator) {
+        private static void Process(byte[,,] ycbcr, int quantizator) {
             double[,] dct_matrix = GetDCTMatrix(8.0);
             byte[,] q_matrix = GetQuantMatrix(quantizator);
 
@@ -195,6 +195,16 @@ namespace DCT
                 return 255;
             } else {
                 return (byte)Math.Round(value);
+            }
+        }
+
+        private static sbyte ToSByte(double value) {
+            if (value <= -128.0) {
+                return -128;
+            } else if (value >= 127.0) {
+                return 127;
+            } else {
+                return (sbyte)Math.Round(value);
             }
         }
     }
