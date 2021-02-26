@@ -1,62 +1,131 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Text;
 
 namespace DCT
 {
     public class ImageShakalizer
     {
-        public static Image Damage(Bitmap srcImage, int quality) {
-            byte[,,] rgb = BitmapToByteRgb(srcImage);
-            double[,,] ycbcr = ByteRgbToByteYCbCr(rgb);
-            Process(ycbcr, quality);
-            byte[,,] result_rgb = ByteYCbCrToByteRgb(ycbcr);
-            Bitmap result_image = ByteRgbToBitmap(result_rgb);
-            return result_image;
+        private readonly double[,,] originalYCbCrMatrix;
+        private double[,,] yCbCrMatrix;
+        private readonly int heigth;
+        private readonly int width;
+        private readonly double[,] tempBlock = new double[8, 8];
+
+
+        public ImageShakalizer(Bitmap bitmap) {
+            byte[,,] rgbMatrix = BitmapToByteRgb(bitmap);
+            originalYCbCrMatrix = ByteRgbToByteYCbCr(rgbMatrix);
+            heigth = originalYCbCrMatrix.GetLength(1);
+            width = originalYCbCrMatrix.GetLength(2);
         }
 
-
-
-
-
-
-
-
-        private static void Process(double[,,] ycbcr, int quantizator) {
+        public Bitmap Damage(int quality) {
+            yCbCrMatrix = CloneYCbCrMatrix();
             double[,] dct_matrix = CreateDCTMatrix(8.0);
             double[,] dct_matrix_transpose = TransposeMatrix(dct_matrix);
-            double[,] q_matrix = CreateQuantMatrix(quantizator);
-
-            int heigth = ycbcr.GetLength(1);
-            int width = ycbcr.GetLength(2);
+            double[,] q_matrix = CreateQuantMatrix(quality);
 
             // цикл по блокам 8х8
             for (int block_y = 0; block_y < heigth; block_y += 8) {
                 for (int block_x = 0; block_x < width; block_x += 8) {
                     for (int dimension = 0; dimension <= 2; dimension++) {
 
-                        double[,] block = GetBlock(ycbcr, dimension, block_y, block_x);
-                        LinearRound(block);
+                        MultipleMatrix(dimension, block_y, block_x, dct_matrix_transpose);
 
-                        double[,] t_matrix = MultipleMatrix(block, dct_matrix_transpose);
-                        LinearRound(t_matrix);
+                        LinearDivide(dimension, block_y, block_x, q_matrix);
 
+                        LinearRound(dimension, block_y, block_x);
 
-                        LinearDivide(t_matrix, q_matrix);
-                        LinearRound(t_matrix);
+                        LinearMultiple(dimension, block_y, block_x, q_matrix);
 
-                        LinearRound(t_matrix);
-                        LinearMultiple(t_matrix, q_matrix);
-
-                        t_matrix = MultipleMatrix(t_matrix, dct_matrix);
-
-                        LinearRound(t_matrix);
-                        SetBlock(ycbcr, t_matrix, dimension, block_y, block_x);
+                        MultipleMatrix(dimension, block_y, block_x, dct_matrix);
                     }
                 }
             }
+
+            byte[,,] rgb = ByteYCbCrToByteRgb(yCbCrMatrix);
+            return ByteRgbToBitmap(rgb);
         }
+
+
+        private double[,,] CloneYCbCrMatrix() {
+            double[,,] matrix = new double[
+                originalYCbCrMatrix.GetLength(0),
+                originalYCbCrMatrix.GetLength(1),
+                originalYCbCrMatrix.GetLength(2)];
+            Array.Copy(originalYCbCrMatrix, matrix, matrix.Length);
+            return matrix;
+        }
+
+        private void MultipleMatrix(int dimension, int offset_y, int offset_x, double[,] b) {
+            ReadTempBlock(dimension, offset_y, offset_x);
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    double value = 0.0;
+                    for (int i = 0; i < 8; i++) {
+                        value += tempBlock[y, i] * b[i, x];
+                    }
+                    yCbCrMatrix[dimension, y + offset_y, x + offset_x] = value;
+                }
+            }
+
+
+
+
+            //int by = b.GetLength(0);
+            //int ax = a.GetLength(1);
+            //int bx = b.GetLength(1);
+
+            //Validate.IsTrue(ax == by);
+
+            //double[,] matrix = new double[by, bx];
+            //for (int y = 0; y < by; y++) {
+            //    for (int x = 0; x < bx; x++) {
+            //        double value = 0.0;
+            //        for (int i = 0; i < ax; i++) {
+            //            value += a[y, i] * b[i, x];
+            //        }
+            //        matrix[y, x] = value;
+            //    }
+            //}
+            //return matrix;
+
+
+        }
+
+        private void ReadTempBlock(int dimension, int offset_y, int offset_x) {
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    tempBlock[y, x] = yCbCrMatrix[dimension, y + offset_y, x + offset_x];
+                }
+            }
+        }
+
+        private void LinearDivide(int dimension, int offset_y, int offset_x, double[,] b) {
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    yCbCrMatrix[dimension, y + offset_y, x + offset_x] /= b[y, x];
+                }
+            }
+        }
+
+        private void LinearRound(int dimension, int offset_y, int offset_x) {
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    yCbCrMatrix[dimension, y + offset_y, x + offset_x] = Math.Round(yCbCrMatrix[dimension, y + offset_y, x + offset_x]);
+                }
+            }
+        }
+
+        private void LinearMultiple(int dimension, int offset_y, int offset_x, double[,] b) {
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    yCbCrMatrix[dimension, y + offset_y, x + offset_x] *= b[y, x];
+                }
+            }
+        }
+
 
         private static unsafe byte[,,] BitmapToByteRgb(Bitmap bmp) {
             //https://habr.com/ru/post/196578/
@@ -142,6 +211,16 @@ namespace DCT
             return rgb;
         }
 
+        private static byte ToByte(double value) {
+            if (value <= 0.0) {
+                return 0;
+            } else if (value >= 255.0) {
+                return 255;
+            } else {
+                return (byte)Math.Round(value);
+            }
+        }
+
         private static double[,] CreateDCTMatrix(double n) {
             double[,] dct_matrix = new double[8, 8];
             for (int i = 0; i < 8; i++) {
@@ -158,22 +237,12 @@ namespace DCT
 
         private static double[,] CreateQuantMatrix(int q) {
             double[,] q_matrix = new double[8, 8];
-            for (int i = 0; i < 8; i++) {
-                for (int j = 0; j < 8; j++) {
-                    q_matrix[i, j] = 1 + ((1 + i + j) * q);
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    q_matrix[y, x] = 1 + ((1 + y + x) * q);
                 }
             }
             return q_matrix;
-        }
-
-        private static byte ToByte(double value) {
-            if (value <= 0.0) {
-                return 0;
-            } else if (value >= 255.0) {
-                return 255;
-            } else {
-                return (byte)Math.Round(value);
-            }
         }
 
         private static double[,] TransposeMatrix(double[,] a) {
@@ -186,91 +255,6 @@ namespace DCT
                 }
             }
             return matrix;
-        }
-
-        private static double[,] MultipleMatrix(double[,] a, double[,] b) {
-            int by = b.GetLength(0);
-            int ax = a.GetLength(1);
-            int bx = b.GetLength(1);
-
-            Validate.IsTrue(ax == by);
-
-            double[,] matrix = new double[by, bx];
-            for (int y = 0; y < by; y++) {
-                for (int x = 0; x < bx; x++) {
-                    double value = 0.0;
-                    for (int i = 0; i < ax; i++) {
-                        value += a[y, i] * b[i, x];
-                    }
-                    matrix[y, x] = value;
-                }
-            }
-            return matrix;
-        }
-
-        private static double[,] GetBlock(double[,,] matrix, int dimension, int offset_y, int offset_x) {
-            double[,] block = new double[8, 8];
-            for (int y = 0; y < 8; y++) {
-                for (int x = 0; x < 8; x++) {
-                    block[y, x] = matrix[dimension, y + offset_y, x + offset_x];
-                }
-            }
-            return block;
-        }
-
-        private static void SetBlock(double[,,] matrix, double[,] block, int dimension, int offset_y, int offset_x) {
-            for (int y = 0; y < 8; y++) {
-                for (int x = 0; x < 8; x++) {
-                    matrix[dimension, y + offset_y, x + offset_x] = block[y, x];
-                }
-            }
-        }
-
-        private static void LinearDivide(double[,] a, double[,] b) {
-            int ay = a.GetLength(0);
-            int ax = a.GetLength(1);
-            for (int y = 0; y < ay; y++) {
-                for (int x = 0; x < ax; x++) {
-                    a[y, x] /= b[y, x];
-                }
-            }
-        }
-
-        private static void LinearMultiple(double[,] a, double[,] b) {
-            int ay = a.GetLength(0);
-            int ax = a.GetLength(1);
-            for (int y = 0; y < ay; y++) {
-                for (int x = 0; x < ax; x++) {
-                    a[y, x] *= b[y, x];
-                }
-            }
-        }
-
-
-        private static void LinearRound(double[,] a) {
-            int ay = a.GetLength(0);
-            int ax = a.GetLength(1);
-            for (int y = 0; y < ay; y++) {
-                for (int x = 0; x < ax; x++) {
-                    a[y, x] = Math.Round(a[y, x]);
-                }
-            }
-        }
-
-
-
-
-        private static string DEBUG_TOTEXT(double[,] a) {
-            StringBuilder str = new StringBuilder();
-            int ay = a.GetLength(0);
-            int ax = a.GetLength(1);
-            for (int y = 0; y < ay; y++) {
-                for (int x = 0; x < ax; x++) {
-                    str.Append(a[y, x] + "\t");
-                }
-                str.AppendLine();
-            }
-            return str.ToString();
         }
     }
 }

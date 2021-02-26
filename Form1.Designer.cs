@@ -40,12 +40,12 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.trackBar1.Location = new System.Drawing.Point(42, 7);
             this.trackBar1.Margin = new System.Windows.Forms.Padding(2);
-            this.trackBar1.Minimum = 1;
-            this.trackBar1.Maximum = 500;
+            this.trackBar1.Minimum = 0;
+            this.trackBar1.Maximum = 100;
             this.trackBar1.Name = "trackBar1";
             this.trackBar1.Size = new System.Drawing.Size(739, 45);
             this.trackBar1.TabIndex = 3;
-            this.trackBar1.Value = 70;
+            this.trackBar1.Value = 50;
             this.trackBar1.Scroll += new System.EventHandler(this.trackBar1_Scroll);
             // 
             // pictureBox1
