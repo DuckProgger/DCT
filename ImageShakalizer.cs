@@ -1,14 +1,27 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO;
 
 namespace DCT
 {
     public class ImageShakalizer
     {
         public static Image Damage(Bitmap srcImage, int quality) {
+
+            double[,] a = new double[,] {
+                {  3, -1,  2 },
+                {  4,  2,  0 },
+                { -5,  6,  1} };
+
+            double[,] b = new double[,] {
+                {  8,  1 },
+                {  7,  2 },
+                {  2, -3 } };
+
+            double[,] c = ImageShakalizer.MultipleMatrix(a, b);
+
+
+
             byte[,,] rgb = BitmapToByteRgb(srcImage);
             double[,,] ycbcr = ByteRgbToByteYCbCr(rgb);
             Process(ycbcr, quality);
@@ -112,6 +125,7 @@ namespace DCT
 
         private static void Process(double[,,] ycbcr, int quantizator) {
             double[,] dct_matrix = GetDCTMatrix(8.0);
+            double[,] dct_matrix_transpose = TransposeMatrix(dct_matrix);
             double[,] q_matrix = GetQuantMatrix(quantizator);
 
             double[,] t_matrix_cb = new double[8, 8];
@@ -122,36 +136,22 @@ namespace DCT
 
             // цикл по блокам 8х8
             for (int block_h = 0; block_h < heigth; block_h += 8) {
-                int block_h_end = block_h + 8;
                 for (int block_w = 0; block_w < width; block_w += 8) {
-                    int block_w_end = block_w + 8;
 
-                    // цикл по пикселям внутри блока 8х8
-                    for (int h = block_h; h < block_h_end; h++) {
-                        for (int w = block_w; w < block_w_end; w++) {
+                    double[,] cb_block = GetBlock(ycbcr, 1, block_h, block_w);
+                    double[,] cr_block = GetBlock(ycbcr, 2, block_h, block_w);
 
-                            // используется смещение для матрицы квантования
-                            int offset_h = h - block_h;
-                            int offset_w = w - block_w;
+                    t_matrix_cb = MultipleMatrix(cb_block, dct_matrix_transpose);
+                    t_matrix_cr = MultipleMatrix(cr_block, dct_matrix_transpose);
+                   
+                    //LinearDivide(t_matrix_cb, q_matrix);
+                    //LinearDivide(t_matrix_cr, q_matrix);
 
-                            double cb = ycbcr[1, h, w];
-                            double cr = ycbcr[2, h, w];
+                    double[,] cb_block_new = MultipleMatrix(t_matrix_cb, dct_matrix);
+                    double[,] cr_block_new = MultipleMatrix(t_matrix_cr, dct_matrix);
 
-                            t_matrix_cb[offset_h, offset_w] = cb * dct_matrix[offset_w, offset_h];
-                            t_matrix_cr[offset_h, offset_w] = cr * dct_matrix[offset_w, offset_h];
-
-                            t_matrix_cb[offset_h, offset_w] *= dct_matrix[offset_h, offset_w];
-                            t_matrix_cr[offset_h, offset_w] *= dct_matrix[offset_h, offset_w];
-
-                            t_matrix_cb[offset_h, offset_w] *= q_matrix[offset_h, offset_w];
-                            t_matrix_cr[offset_h, offset_w] *= q_matrix[offset_h, offset_w];
-
-                            ycbcr[1, h, w] = t_matrix_cb[offset_h, offset_w];
-                            ycbcr[2, h, w] = t_matrix_cr[offset_h, offset_w];
-
-
-                        }
-                    }
+                    SetBlock(ycbcr, cb_block_new, 1, block_h, block_w);
+                    SetBlock(ycbcr, cr_block_new, 2, block_h, block_w);
                 }
             }
         }
@@ -202,17 +202,65 @@ namespace DCT
             }
         }
 
-        public static double[,] MultipleMatrix(double[,] a, double[,] b) {
-            int a1 = a.GetLength(0);
-            int a2 = a.GetLength(1);
-            int b1 = b.GetLength(1);
-            int b2 = b.GetLength(0);
-
-            double[,] c = new double[b1, b2];
-
-
-
-            return c;
+        public static double[,] TransposeMatrix(double[,] a) {
+            int ay = a.GetLength(0);
+            int ax = a.GetLength(1);
+            double[,] matrix = new double[ax, ay];
+            for (int y = 0; y < ay; y++) {
+                for (int x = 0; x < ax; x++) {
+                    matrix[x, y] = a[y, x];
+                }
+            }
+            return matrix;
         }
+
+        public static double[,] MultipleMatrix(double[,] a, double[,] b) {
+            int by = b.GetLength(0);
+            int ax = a.GetLength(1);
+            int bx = b.GetLength(1);
+
+            Validate.IsTrue(ax == by);
+
+            double[,] matrix = new double[by, bx];
+            for (int y = 0; y < by; y++) {
+                for (int x = 0; x < bx; x++) {
+                    double value = 0.0;
+                    for (int i = 0; i < ax; i++) {
+                        value += a[y, i] * b[i, x];
+                    }
+                    matrix[y, x] = value;
+                }
+            }
+            return matrix;
+        }
+
+        public static double[,] GetBlock(double[,,] matrix, int dimension, int offset_y, int offset_x) {
+            double[,] block = new double[8, 8];
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    block[y, x] = matrix[dimension, y + offset_y, x + offset_x];
+                }
+            }
+            return block;
+        }
+
+        public static void SetBlock(double[,,] matrix, double[,] block, int dimension, int offset_y, int offset_x) {
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    matrix[dimension, y + offset_y, x + offset_x] = block[y, x];
+                }
+            }
+        }
+
+        public static void LinearDivide(double[,] a, double[,] b) {
+            int ay = a.GetLength(0);
+            int ax = a.GetLength(1);
+            for (int y = 0; y < ay; y++) {
+                for (int x = 0; x < ax; x++) {
+                    a[y, x] /= b[y, x];
+                }
+            }
+        }
+
     }
 }
