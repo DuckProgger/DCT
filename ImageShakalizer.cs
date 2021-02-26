@@ -32,32 +32,28 @@ namespace DCT
             dct_matrix_transpose = TransposeMatrix(dct_matrix);
             q_matrix = CreateQuantMatrix(quality);
 
-            List<Task> tasks = new List<Task>(blocks_count);
+            Task[] dimension_tasks = new Task[3];
 
-            // цикл по блокам 8х8
+            // цикл по пространствам (Y, Cb, Cr)
             for (int dimension = 0; dimension <= 2; dimension++) {
-                for (int block_y = 0; block_y < heigth; block_y += 8) {
-                    for (int block_x = 0; block_x < width; block_x += 8) {
 
-                        int current_block_y = block_y;
-                        int current_block_x = block_x;
-                        int current_dimension = dimension;
-                        Action prepareBlockAction = () => PrepareBlock(current_dimension, current_block_y, current_block_x);
+                int current_dimension = dimension;
+                Action prepareDimensionAction = () => PrepareDimension(current_dimension);
 
-                        if (blocks_count <= 1000) {
-                            // если картинка небольшая, код будет выполняться синхронно
-                            prepareBlockAction.Invoke();
-                        } else {
-                            // в случае большой картинки обработка каждого блока будет выполнена в отдельной задаче
-                            Task task = Task.Run(prepareBlockAction);
-                            tasks.Add(task);
-                        }
-                    }
+                if (blocks_count <= 1000) {
+                    // если картинка небольшая, обработка пространств выполняться синхронно
+                    prepareDimensionAction.Invoke();
+                } else {
+                    // в случае большой картинки обработка пространств будет выполнена асинхронно
+                    Task task = Task.Run(prepareDimensionAction);
+                    dimension_tasks[dimension] = task;
                 }
             }
 
-            // ожидание, когда все асинхронные задачи по обработке блоков будут выполнены
-            Task.WaitAll(tasks.ToArray());
+            if (blocks_count > 1000) {
+                // ожидание, когда все асинхронные задачи по обработке блоков будут выполнены
+                Task.WaitAll(dimension_tasks);
+            }
 
             byte[,,] rgb = ByteYCbCrToByteRgb(ycbcr_matrix);
             return ByteRgbToBitmap(rgb);
@@ -73,20 +69,25 @@ namespace DCT
             return matrix;
         }
 
-        private void PrepareBlock(int dimension, int offset_y, int offset_x) {
+        private void PrepareDimension(int dimension) {
             float[,] temp_block = new float[8, 8];
 
-            // кодирование
-            MultipleBlock(dimension, offset_y, offset_x, dct_matrix_transpose, temp_block);
+            for (int block_y = 0; block_y < heigth; block_y += 8) {
+                for (int block_x = 0; block_x < width; block_x += 8) {
 
-            LinearDivideBlock(dimension, offset_y, offset_x, q_matrix);
+                    // кодирование
+                    MultipleBlock(dimension, block_y, block_x, dct_matrix_transpose, temp_block);
 
-            LinearRoundBlock(dimension, offset_y, offset_x);
+                    LinearDivideBlock(dimension, block_y, block_x, q_matrix);
 
-            // декодирование
-            LinearMultipleBlock(dimension, offset_y, offset_x, q_matrix);
+                    LinearRoundBlock(dimension, block_y, block_x);
 
-            MultipleBlock(dimension, offset_y, offset_x, dct_matrix, temp_block);
+                    // декодирование
+                    LinearMultipleBlock(dimension, block_y, block_x, q_matrix);
+
+                    MultipleBlock(dimension, block_y, block_x, dct_matrix, temp_block);
+                }
+            }
         }
 
         private void MultipleBlock(int dimension, int offset_y, int offset_x, float[,] matrix, float[,] temp_block) {
