@@ -190,7 +190,6 @@ namespace DCT
 
 
         private static byte ToByte(double value) {
-            Debug.WriteLine(value);
             if (value <= 0.0) {
                 return 0;
             } else if (value >= 255.0) {
