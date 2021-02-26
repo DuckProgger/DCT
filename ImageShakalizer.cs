@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 
 namespace DCT
 {
@@ -111,7 +112,7 @@ namespace DCT
 
         private static void Process(double[,,] ycbcr, int quantizator) {
             double[,] dct_matrix = GetDCTMatrix(8.0);
-            byte[,] q_matrix = GetQuantMatrix(quantizator);
+            double[,] q_matrix = GetQuantMatrix(quantizator);
 
             double[,] t_matrix_cb = new double[8, 8];
             double[,] t_matrix_cr = new double[8, 8];
@@ -133,32 +134,24 @@ namespace DCT
                             int offset_h = h - block_h;
                             int offset_w = w - block_w;
 
-                            //byte cb = ycbcr[1, h, w];
-                            //byte cr = ycbcr[2, h, w];
+                            double cb = ycbcr[1, h, w];
+                            double cr = ycbcr[2, h, w];
 
-                            //t_matrix_cb[offset_h, offset_w] = cb * dct_matrix[offset_w, offset_h];
-                            //t_matrix_cr[offset_h, offset_w] = cr * dct_matrix[offset_w, offset_h];
+                            t_matrix_cb[offset_h, offset_w] = cb * dct_matrix[offset_w, offset_h];
+                            t_matrix_cr[offset_h, offset_w] = cr * dct_matrix[offset_w, offset_h];
 
-                            //t_matrix_cb[offset_h, offset_w] *= dct_matrix[offset_h, offset_w];
-                            //t_matrix_cr[offset_h, offset_w] *= dct_matrix[offset_h, offset_w];
+                            t_matrix_cb[offset_h, offset_w] *= dct_matrix[offset_h, offset_w];
+                            t_matrix_cr[offset_h, offset_w] *= dct_matrix[offset_h, offset_w];
 
-                            //t_matrix_cb[offset_h, offset_w] *= q_matrix[offset_h, offset_w];
-                            //t_matrix_cr[offset_h, offset_w] *= q_matrix[offset_h, offset_w];
+                            t_matrix_cb[offset_h, offset_w] *= q_matrix[offset_h, offset_w];
+                            t_matrix_cr[offset_h, offset_w] *= q_matrix[offset_h, offset_w];
 
-                            //ycbcr[1, h, w] = GetByte(t_matrix_cb[offset_h, offset_w]);
-                            //ycbcr[2, h, w] = GetByte(t_matrix_cr[offset_h, offset_w]);
+                            ycbcr[1, h, w] = t_matrix_cb[offset_h, offset_w];
+                            ycbcr[2, h, w] = t_matrix_cr[offset_h, offset_w];
 
 
-                            //ycbcr[1, h, w] = 0;
-                            //ycbcr[2, h, w] = 0;
                         }
                     }
-
-
-
-                    { }
-
-
                 }
             }
         }
@@ -177,11 +170,11 @@ namespace DCT
             return dct_matrix;
         }
 
-        private static byte[,] GetQuantMatrix(int q) {
-            byte[,] q_matrix = new byte[8, 8];
+        private static double[,] GetQuantMatrix(int q) {
+            double[,] q_matrix = new double[8, 8];
             for (int i = 0; i < 8; i++) {
                 for (int j = 0; j < 8; j++) {
-                    q_matrix[i, j] = (byte)(1 + ((1 + i + j) * q));
+                    q_matrix[i, j] = 1 + ((1 + i + j) * q);
                 }
             }
             return q_matrix;
@@ -207,6 +200,19 @@ namespace DCT
             } else {
                 return (sbyte)Math.Round(value);
             }
+        }
+
+        public static double[,] MultipleMatrix(double[,] a, double[,] b) {
+            int a1 = a.GetLength(0);
+            int a2 = a.GetLength(1);
+            int b1 = b.GetLength(1);
+            int b2 = b.GetLength(0);
+
+            double[,] c = new double[b1, b2];
+
+
+
+            return c;
         }
     }
 }
