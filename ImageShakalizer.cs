@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 
@@ -8,7 +9,7 @@ namespace DCT
     {
         public static Image Damage(Bitmap srcImage, int quality) {
             byte[,,] rgb = BitmapToByteRgb(srcImage);
-            byte[,,] ycbcr = ByteRgbToByteYCbCr(rgb);
+            double[,,] ycbcr = ByteRgbToByteYCbCr(rgb);
             Process(ycbcr, quality);
             byte[,,] result_rgb = ByteYCbCrToByteRgb(ycbcr);
             Bitmap result_image = ByteRgbToBitmap(result_rgb);
@@ -74,32 +75,32 @@ namespace DCT
             return bmp;
         }
 
-        private static byte[,,] ByteRgbToByteYCbCr(byte[,,] rgb) {
+        private static double[,,] ByteRgbToByteYCbCr(byte[,,] rgb) {
             int heigth = rgb.GetLength(1);
             int width = rgb.GetLength(2);
-            byte[,,] ycbcr = new byte[3, heigth, width];
+            double[,,] ycbcr = new double[3, heigth, width];
             for (int h = 0; h < heigth; h++) {
                 for (int w = 0; w < width; w++) {
                     byte r = rgb[0, h, w];
                     byte g = rgb[1, h, w];
                     byte b = rgb[2, h, w];
-                    ycbcr[0, h, w] = ToByte((0.299 * r) + (0.587 * g) + (0.114 * b));
-                    ycbcr[1, h, w] = ToByte(128.0 - (0.168736 * r) - (0.331264 * g) + (0.5 * b));
-                    ycbcr[2, h, w] = ToByte(128.0 + (0.5 * r) - (0.418688 * g) - (0.081312 * b));
+                    ycbcr[0, h, w] = (0.299 * r) + (0.587 * g) + (0.114 * b);
+                    ycbcr[1, h, w] = 128.0 - (0.168736 * r) - (0.331264 * g) + (0.5 * b);
+                    ycbcr[2, h, w] = 128.0 + (0.5 * r) - (0.418688 * g) - (0.081312 * b);
                 }
             }
             return ycbcr;
         }
 
-        private static byte[,,] ByteYCbCrToByteRgb(byte[,,] ycbcr) {
+        private static byte[,,] ByteYCbCrToByteRgb(double[,,] ycbcr) {
             int heigth = ycbcr.GetLength(1);
             int width = ycbcr.GetLength(2);
             byte[,,] rgb = new byte[3, heigth, width];
             for (int h = 0; h < heigth; h++) {
                 for (int w = 0; w < width; w++) {
-                    byte y = ycbcr[0, h, w];
-                    byte cb = ycbcr[1, h, w];
-                    byte cr = ycbcr[2, h, w];
+                    double y = ycbcr[0, h, w];
+                    double cb = ycbcr[1, h, w];
+                    double cr = ycbcr[2, h, w];
                     rgb[0, h, w] = ToByte(y + 1.402 * (cr - 128.0));
                     rgb[1, h, w] = ToByte(y - 0.34414 * (cb - 128.0) - 0.71414 * (cr - 128.0));
                     rgb[2, h, w] = ToByte(y + 1.772 * (cb - 128.0));
@@ -108,7 +109,7 @@ namespace DCT
             return rgb;
         }
 
-        private static void Process(byte[,,] ycbcr, int quantizator) {
+        private static void Process(double[,,] ycbcr, int quantizator) {
             double[,] dct_matrix = GetDCTMatrix(8.0);
             byte[,] q_matrix = GetQuantMatrix(quantizator);
 
@@ -148,8 +149,8 @@ namespace DCT
                             //ycbcr[2, h, w] = GetByte(t_matrix_cr[offset_h, offset_w]);
 
 
-                            ycbcr[1, h, w] = 0;
-                            ycbcr[2, h, w] = 0;
+                            //ycbcr[1, h, w] = 0;
+                            //ycbcr[2, h, w] = 0;
                         }
                     }
 
@@ -189,6 +190,7 @@ namespace DCT
 
 
         private static byte ToByte(double value) {
+            Debug.WriteLine(value);
             if (value <= 0.0) {
                 return 0;
             } else if (value >= 255.0) {
